@@ -89,11 +89,26 @@ int main(int argc, char** argv) {
 
     while (1) {
         // TODO: Add IO multiplexing
+        fd_set rset, wset;
+        FD_ZERO(&rset);
+        FD_ZERO(&wset);
         // Check new connection
         clilen = sizeof(cliaddr);
         conn_fd = accept(svr.listen_fd, (struct sockaddr*)&cliaddr, (socklen_t*)&clilen);
+        // Set conn_fd nonblock
+        int val;
+        if (val = fcntl(conn_fd,F_GETFL,0))
+            fprintf(stderr,"fcntl F_GETFL error");
+        if (fcntl(conn_fd,F_SETFL,val | O_NONBLOCK) < 0)
+            fprintf(stderr,"fcntl F_SETFL error");
+
         if (conn_fd < 0) {
-            if (errno == EINTR || errno == EAGAIN) continue;  // try again
+            if (errno == EINTR || errno == EAGAIN) {
+               #ifdef DEBUG
+               fprintf(stderr, "not accept\n");
+               #endif
+               continue;  // try again
+            }
             if (errno == ENFILE) {
                 (void) fprintf(stderr, "out of file descriptor table ... (maxconn %d)\n", maxfd);
                 continue;
@@ -121,7 +136,7 @@ int main(int argc, char** argv) {
                 // TODO: check if the request should be rejected.
                 write(requestP[conn_fd].conn_fd, accept_header, sizeof(accept_header));
                 file_fd = open(requestP[conn_fd].filename, O_RDONLY, 0);
-                }
+            }
             if (ret == 0) break;
             while (1) {
             ret = read(file_fd, buf, sizeof(buf));
