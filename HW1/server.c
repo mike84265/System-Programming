@@ -87,20 +87,21 @@ int main(int argc, char** argv) {
     // Loop for handling connections
     fprintf(stderr, "\nstarting on %.80s, port %d, fd %d, maxconn %d...\n", svr.hostname, svr.port, svr.listen_fd, maxfd);
 
+    fd_set rset, wset, connset;
+    FD_ZERO(&rset);
+    FD_ZERO(&wset);
+    FD_ZERO(&connset);
     while (1) {
         // TODO: Add IO multiplexing
-        fd_set rset, wset;
-        FD_ZERO(&rset);
-        FD_ZERO(&wset);
         // Check new connection
         clilen = sizeof(cliaddr);
         conn_fd = accept(svr.listen_fd, (struct sockaddr*)&cliaddr, (socklen_t*)&clilen);
         // Set conn_fd nonblock
         int val;
-        if (val = fcntl(conn_fd,F_GETFL,0))
-            fprintf(stderr,"fcntl F_GETFL error");
+        if ((val = fcntl(conn_fd,F_GETFL,0)) < 0)
+            fprintf(stderr,"fcntl F_GETFL error\n");
         if (fcntl(conn_fd,F_SETFL,val | O_NONBLOCK) < 0)
-            fprintf(stderr,"fcntl F_SETFL error");
+            fprintf(stderr,"fcntl F_SETFL error\n");
 
         if (conn_fd < 0) {
             if (errno == EINTR || errno == EAGAIN) {
