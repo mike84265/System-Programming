@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include "util.h"
 
 #define ERR_EXIT(a) { perror(a); exit(1); }
 
@@ -51,6 +52,7 @@ static int handle_read(request* reqP);
 // It's guaranteed that the header would be correctly set after the first read.
 // error code:
 // -1: client connection error
+
 
 int main(int argc, char** argv) {
     int i, ret;
@@ -139,7 +141,7 @@ int main(int argc, char** argv) {
                     if (conn_fd >= maxfd)
                         fprintf(stderr,"Counting fd error! nconn = %d\n", nconn);
                     if ( (ret = handle_read(&requestP[conn_fd])) > 0 ) {
-                        printf("ret = %d, goto read_server\n", ret);
+                        printf("ret = %d, goto R/W_server\n", ret);
                         break;
                     }
                     ++conn_fd;
@@ -184,8 +186,8 @@ int main(int argc, char** argv) {
 #endif
 
 #ifndef READ_SERVER
-        do {
-            ret = handle_read(&requestP[conn_fd]);
+        while(ret > 0) {
+            clr_fl(conn_fd, O_NONBLOCK);
             if (ret < 0) {
                 fprintf(stderr, "bad request from %s\n", requestP[conn_fd].host);
                 continue;
@@ -202,7 +204,8 @@ int main(int argc, char** argv) {
                 }
             if (ret == 0) break;
             write(file_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len);
-        } while (ret > 0);
+            ret = handle_read(&requestP[conn_fd]);
+        } 
         fprintf(stderr, "Done writing file [%s]\n", requestP[conn_fd].filename);
 #endif
 
