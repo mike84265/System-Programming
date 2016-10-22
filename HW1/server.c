@@ -87,28 +87,30 @@ int main(int argc, char** argv) {
     // Loop for handling connections
     fprintf(stderr, "\nstarting on %.80s, port %d, fd %d, maxconn %d...\n", svr.hostname, svr.port, svr.listen_fd, maxfd);
 
-    fd_set rset, wset, connset;
-    FD_ZERO(&rset);
-    FD_ZERO(&wset);
-    FD_ZERO(&connset);
+    fd_set r_set, w_set;
+    struct timeval tv;
+    int val, nconn=0;
+    tv.tv_sec = tv.tv_usec = 0;
+    FD_ZERO(&r_set);
+    FD_ZERO(&w_set);
+    if ((val = fcntl(svr.listen_fd,F_GETFL,0)) < 0)
+        fprintf(stderr,"fcntl svr.listen_fd F_GETFL error\n");
+    if (fcntl(svr.listen_fd,F_SETFL,val | O_NONBLOCK) < 0)
+        fprintf(stderr,"fcntl svr.listen_fd F_SETFL error\n");
     while (1) {
         // TODO: Add IO multiplexing
         // Check new connection
         clilen = sizeof(cliaddr);
         conn_fd = accept(svr.listen_fd, (struct sockaddr*)&cliaddr, (socklen_t*)&clilen);
-        // Set conn_fd nonblock
-        int val;
-        if ((val = fcntl(conn_fd,F_GETFL,0)) < 0)
-            fprintf(stderr,"fcntl F_GETFL error\n");
-        if (fcntl(conn_fd,F_SETFL,val | O_NONBLOCK) < 0)
-            fprintf(stderr,"fcntl F_SETFL error\n");
 
+        /*
         if (conn_fd < 0) {
             if (errno == EINTR || errno == EAGAIN) {
                #ifdef DEBUG
                fprintf(stderr, "not accept\n");
                #endif
-               continue;  // try again
+               sleep(1);
+               // continue;  // try again
             }
             if (errno == ENFILE) {
                 (void) fprintf(stderr, "out of file descriptor table ... (maxconn %d)\n", maxfd);
@@ -116,19 +118,50 @@ int main(int argc, char** argv) {
             }
             ERR_EXIT("accept")
         }
-        requestP[conn_fd].conn_fd = conn_fd;
-        strcpy(requestP[conn_fd].host, inet_ntoa(cliaddr.sin_addr));
-        fprintf(stderr, "getting a new request... fd %d from %s\n", conn_fd, requestP[conn_fd].host);
+        */
+        if (conn_fd > 0) {
+            // Set conn_fd nonblock
+            ++nconn;
+            if ((val = fcntl(conn_fd,F_GETFL,0)) < 0)
+                fprintf(stderr,"fcntl conn_fd F_GETFL error\n");
+            if (fcntl(conn_fd,F_SETFL,val | O_NONBLOCK) < 0)
+                fprintf(stderr,"fcntl conn_fd F_SETFL error\n");
+            requestP[conn_fd].conn_fd = conn_fd;
+            strcpy(requestP[conn_fd].host, inet_ntoa(cliaddr.sin_addr));
+            fprintf(stderr, "getting a new request... fd %d from %s\n", conn_fd, requestP[conn_fd].host);
+            continue;
+        } else {
+            conn_fd = 4;    // fd for testing. In accord to the following variables.
+            if (nconn != 0){
+                for (int i=0;i<nconn;++i){
+                    while (requestP[conn_fd].conn_fd == -1 && conn_fd < maxfd)
+                        ++conn_fd;
+                    if (conn_fd >= maxfd)
+                        fprintf(stderr,"Counting fd error! nconn = %d\n", nconn);
+                    if ( (ret = handle_read(&requestP[conn_fd])) > 0 ) {
+                        printf("ret = %d, goto read_server\n", ret);
+                        break;
+                    }
+                    ++conn_fd;
+                }
+                if (ret <= 0)
+                    continue;
+            }
+            else
+                continue;
+        }
 
         file_fd = -1;
         
 
 #ifdef READ_SERVER
+        /*
         ret = handle_read(&requestP[conn_fd]);
             if (ret < 0) {
                 fprintf(stderr, "bad request from %s\n", requestP[conn_fd].host);
                 continue;
             }
+            */
             // requestP[conn_fd]->filename is guaranteed to be successfully set.
             if (file_fd == -1) {
                 // open the file here.
@@ -140,13 +173,13 @@ int main(int argc, char** argv) {
             }
             if (ret == 0) break;
             while (1) {
-            ret = read(file_fd, buf, sizeof(buf));
-            if (ret < 0) {
-                fprintf(stderr, "Error when reading file %s\n", requestP[conn_fd].filename);
-                break;
-            } else if (ret == 0) break;
-            write(requestP[conn_fd].conn_fd, buf, ret);
-        }
+                ret = read(file_fd, buf, sizeof(buf));
+                if (ret < 0) {
+                    fprintf(stderr, "Error when reading file %s\n", requestP[conn_fd].filename);
+                    break;
+                } else if (ret == 0) break;
+                write(requestP[conn_fd].conn_fd, buf, ret);
+            }
         fprintf(stderr, "Done reading file [%s]\n", requestP[conn_fd].filename);
 #endif
 
@@ -177,6 +210,7 @@ int main(int argc, char** argv) {
         if (file_fd >= 0) close(file_fd);
         close(requestP[conn_fd].conn_fd);
         free_request(&requestP[conn_fd]);
+        --nconn;
     }
 
     free(requestP);
@@ -186,7 +220,6 @@ int main(int argc, char** argv) {
 
 // ======================================================================================================
 // You don't need to know how the following codes are working
-#include <fcntl.h>
 
 static void* e_malloc(size_t size);
 
