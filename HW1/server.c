@@ -13,19 +13,20 @@
 #define ERR_EXIT(a) { perror(a); exit(1); }
 
 typedef struct {
-    char hostname[512];  // server's hostname
+    char hostname[512];   // server's hostname
     unsigned short port;  // port to listen
-    int listen_fd;  // fd to wait for a new connection
+    int listen_fd;        // fd to wait for a new connection
 } server;
 
 typedef struct {
-    char host[512];  // client's host
-    int conn_fd;  // fd to talk with client
-    char buf[512];  // data sent by/to client
-    size_t buf_len;  // bytes used by buf
+    char host[512];       // client's host
+    int conn_fd;          // fd to talk with client
+    char buf[512];        // data sent by/to client
+    size_t buf_len;       // bytes used by buf
     // you don't need to change this.
-    char* filename;  // filename set in header, end with '\0'.
-    int header_done;  // used by handle_read to know if the header is read or not.
+    char* filename;       // filename set in header, end with '\0'.
+    int header_done;      // used by handle_read to know if the header is read or not.
+    int file_fd;          // the file opened by the request
 } request;
 
 server svr;  // server
@@ -92,7 +93,7 @@ int main(int argc, char** argv) {
     fd_set r_set, w_set;
     struct timeval tv;
     int val, nconn=0;
-    tv.tv_sec = tv.tv_usec = 0;
+    tv_reset(&tv,0,0);
     FD_ZERO(&r_set);
     FD_ZERO(&w_set);
     if ((val = fcntl(svr.listen_fd,F_GETFL,0)) < 0)
@@ -157,56 +158,83 @@ int main(int argc, char** argv) {
         
 
 #ifdef READ_SERVER
-        /*
-        ret = handle_read(&requestP[conn_fd]);
-            if (ret < 0) {
-                fprintf(stderr, "bad request from %s\n", requestP[conn_fd].host);
-                continue;
-            }
-            */
-            // requestP[conn_fd]->filename is guaranteed to be successfully set.
-            if (file_fd == -1) {
-                // open the file here.
-                fprintf(stderr, "Opening file [%s]\n", requestP[conn_fd].filename);
-                // TODO: Add lock
-                // TODO: check if the request should be rejected.
+    /* ret = handle_read(&requestP[conn_fd]);
+        if (ret < 0) {
+            fprintf(stderr, "bad request from %s\n", requestP[conn_fd].host);
+            continue;
+        }
+    */
+        // requestP[conn_fd]->filename is guaranteed to be successfully set.
+
+        int accepted, pid;
+        if (requestP[conn_fd].file_fd == -1) {
+            // open the file here.
+            fprintf(stderr, "Opening file [%s]\n", requestP[conn_fd].filename);
+            // TODO: Add lock
+            // TODO: check if the request should be rejected.
+            requestP[conn_fd].file_fd = open(requestP[conn_fd].filename, O_RDONLY, 0);
+            if ( ( pid = lock_test(requestP[conn_fd].file_fd, F_RDLCK, 0, SEEK_SET, 0) )== 0) {
+                readw_lock(requestP[conn_fd].file_fd, 0, SEEK_SET, 0);
                 write(requestP[conn_fd].conn_fd, accept_header, sizeof(accept_header));
-                file_fd = open(requestP[conn_fd].filename, O_RDONLY, 0);
+                accepted = 1;
+            } else {
+                write(requestP[conn_fd].conn_fd, reject_header, sizeof(reject_header));
+                fprintf(stderr,"The file %s is locked by pid %d\n", requestP[conn_fd].filename, pid);
+                accepted = 0;
             }
-            if (ret == 0) break;
+        }
+        if (ret == 0) break;
+        if (accepted) {
             while (1) {
-                ret = read(file_fd, buf, sizeof(buf));
+                ret = read(requestP[conn_fd].file_fd, buf, sizeof(buf));
                 if (ret < 0) {
                     fprintf(stderr, "Error when reading file %s\n", requestP[conn_fd].filename);
                     break;
                 } else if (ret == 0) break;
                 write(requestP[conn_fd].conn_fd, buf, ret);
             }
-        fprintf(stderr, "Done reading file [%s]\n", requestP[conn_fd].filename);
+            fprintf(stderr, "Done reading file [%s]\n", requestP[conn_fd].filename);
+            un_lock(requestP[conn_fd].file_fd, 0, SEEK_SET, 0);
+        }
 #endif
 
 #ifndef READ_SERVER
+        int accepted;
+        // clr_fl(conn_fd, O_NONBLOCK);
         while(ret > 0) {
-            clr_fl(conn_fd, O_NONBLOCK);
-            if (ret < 0) {
-                fprintf(stderr, "bad request from %s\n", requestP[conn_fd].host);
-                continue;
-            }
+            // if (ret < 0) {
+            //     fprintf(stderr, "bad request from %s\n", requestP[conn_fd].host);
+            //     continue;
+            // }
             // requestP[conn_fd]->filename is guaranteed to be successfully set.
-            if (file_fd == -1) {
+            if (requestP[conn_fd].file_fd == -1) {
                 // open the file here.
                 fprintf(stderr, "Opening file [%s]\n", requestP[conn_fd].filename);
                 // TODO: Add lock
                 // TODO: check if the request should be rejected.
-                write(requestP[conn_fd].conn_fd, accept_header, sizeof(accept_header));
-                file_fd = open(requestP[conn_fd].filename, O_WRONLY | O_CREAT | O_TRUNC,
+                requestP[conn_fd].file_fd = open(requestP[conn_fd].filename, O_WRONLY | O_CREAT | O_TRUNC,
                         S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+                if (lock_test(requestP[conn_fd].file_fd, F_WRLCK, 0, SEEK_SET, 0) == 0) {
+                    write(requestP[conn_fd].conn_fd, accept_header, sizeof(accept_header));
+                    writew_lock(requestP[conn_fd].file_fd, 0, SEEK_SET, 0);
+                    accepted = 1;
+                } else {
+                    write(requestP[conn_fd].conn_fd, reject_header, sizeof(reject_header));
+                    accepted = 0;
+                    break;
                 }
-            if (ret == 0) break;
-            write(file_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len);
+            }
+            write(requestP[conn_fd].file_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len);
             ret = handle_read(&requestP[conn_fd]);
+            #ifdef DEBUG
+            printf("serving conn_fd=%d, file_fd = %d,  ret = %d\n",conn_fd, requestP[conn_fd].file_fd, ret);
+            #endif
         } 
-        fprintf(stderr, "Done writing file [%s]\n", requestP[conn_fd].filename);
+        if (ret < 0) continue;
+        if (ret == 0 && accepted) {
+            fprintf(stderr, "Done writing file [%s]\n", requestP[conn_fd].filename);
+            un_lock(file_fd, 0, SEEK_SET, 0);
+        }
 #endif
 
 
@@ -232,6 +260,7 @@ static void init_request(request* reqP) {
     reqP->buf_len = 0;
     reqP->filename = NULL;
     reqP->header_done = 0;
+    reqP->file_fd = -1;
 }
 
 static void free_request(request* reqP) {

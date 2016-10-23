@@ -1,5 +1,7 @@
 #include <fcntl.h>
 #include <stdio.h>
+#include <sys/time.h>
+#include "util.h"
 static int lock_reg(int fd, int cmd, int type, off_t offset, int whence, off_t len)
 {
     struct flock lock;
@@ -59,4 +61,10 @@ void clr_fl(int fd, int flag)
         fprintf(stderr, "fcntl F_GETFL error\n");
     if ( fcntl(fd, F_SETFL, val & ~flag) < 0)
         fprintf(stderr, "fcntl F_SETFL error\n");
+}
+
+void tv_reset(struct timeval* tv, int sec, int usec)
+{
+    tv->tv_sec = sec;
+    tv->tv_usec = usec;
 }
