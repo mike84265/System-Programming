@@ -1,4 +1,4 @@
-CFLAGS = -DDEBUG
+CFLAGS = -DDEBUG 
 all: server.c
 	gcc util.c -c -o util.o
 	gcc server.c $(CFLAGS) util.o -o write_server

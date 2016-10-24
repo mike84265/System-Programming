@@ -68,3 +68,48 @@ void tv_reset(struct timeval* tv, int sec, int usec)
     tv->tv_sec = sec;
     tv->tv_usec = usec;
 }
+
+void init(str_arr* strArr, int capacity, int length)
+{
+    if (capacity <= 0)
+        return;
+    strArr->arr = (char**)malloc(sizeof(char*) * capacity);
+    strArr->capacity = capacity;
+    for (int i=0;i<capacity;++i) {
+        strArr->arr[i] = (char*)malloc(sizeof(char) * length);
+        strArr->arr[i][0] = '\0';
+    }
+    strArr->size = 0;
+}
+
+int query(const char* str, const str_arr* strArr)
+{
+    for (int i=0;i<strArr->capacity;++i) {
+        if (strcmp(strArr->arr[i], str) == 0)
+            return i;
+    }
+    return -1;
+}
+
+void push_back(const char* element, str_arr* strArr)
+{
+    for (int i=0;i<strArr->capacity;++i){
+        if (strArr->arr[i][0] == '\0'){
+            strcpy(strArr->arr[i], element);
+            ++strArr->size;
+            return;
+        }
+    }
+}
+
+int clear(const char* element, str_arr* strArr)
+{
+    for (int i=0;i<strArr->capacity;++i) {
+        if (strcmp(element, strArr->arr[i]) == 0) {
+            strArr->arr[i][0] = '\0';
+            --strArr->size;
+            return i;
+        }
+    }
+    return -1;
+}
