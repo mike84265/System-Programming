@@ -110,22 +110,6 @@ int main(int argc, char** argv) {
         clilen = sizeof(cliaddr);
         conn_fd = accept(svr.listen_fd, (struct sockaddr*)&cliaddr, (socklen_t*)&clilen);
 
-        /*
-        if (conn_fd < 0) {
-            if (errno == EINTR || errno == EAGAIN) {
-               #ifdef DEBUG
-               fprintf(stderr, "not accept\n");
-               #endif
-               sleep(1);
-               // continue;  // try again
-            }
-            if (errno == ENFILE) {
-                (void) fprintf(stderr, "out of file descriptor table ... (maxconn %d)\n", maxfd);
-                continue;
-            }
-            ERR_EXIT("accept")
-        }
-        */
         if (conn_fd > 0) {
             // Set conn_fd nonblock
             ++nconn;
@@ -159,21 +143,8 @@ int main(int argc, char** argv) {
                 continue;
         }
 
-        // file_fd = -1;
-        // Initialize(?)
-        
-
 #ifdef READ_SERVER
-        /*
-        ret = handle_read(&requestP[conn_fd]);
-           if (ret < 0) {
-               fprintf(stderr, "bad request from %s\n", requestP[conn_fd].host);
-               continue;
-           }
-        */
-    
         // requestP[conn_fd]->filename is guaranteed to be successfully set.
-
         if (file_fd == -1) {
             // open the file here.
             fprintf(stderr, "Opening file [%s]\n", requestP[conn_fd].filename);
@@ -210,11 +181,6 @@ int main(int argc, char** argv) {
 #ifndef READ_SERVER
         // clr_fl(conn_fd, O_NONBLOCK);
         while(ret > 0) {
-            // if (ret < 0) {
-            //     fprintf(stderr, "bad request from %s\n", requestP[conn_fd].host);
-            //     continue;
-            // }
-            // requestP[conn_fd]->filename is guaranteed to be successfully set.
             if (file_fd == -1) {
                 // open the file here.
                 fprintf(stderr, "Opening file [%s]\n", requestP[conn_fd].filename);
