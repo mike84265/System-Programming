@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include "util.h"
 #include <string.h>
+#include <time.h>
+#include <limits.h>
 static void print(int* arr, int r, char* ret)
 {
    sprintf(ret,"%d", arr[0]);
@@ -56,5 +58,38 @@ int checkPlayer(char* comb, int* pList)
 {
    int p[4];
    sscanf(comb,"%d %d %d %d\n",&p[0],&p[1],&p[2],&p[3]);
-   return (p[0] | p[1] | p[2] | p[3]);
+   return (pList[p[0]] | pList[p[1]] | pList[p[2]] | pList[p[3]]);
+}
+
+void err_exit(const char* msg)
+{
+   fprintf(stderr,"%s",msg);
+   exit(1);
+}
+
+void init(Player* p)
+{
+   p->score = 0;
+   p->resNum = 0;
+}
+
+int comparePlayer(const void* A, const void* B)
+{
+   Player* pA = (Player*)A;
+   Player* pB = (Player*)B;
+   if (pA->score != pB->score)
+      return (pA->score - pB->score);
+   else 
+      return (pA->id - pB->id);
+}
+
+int compareInt(const void* A, const void* B)
+{
+   return *(int*)A - *(int*)B;
+}
+
+int rnGen(const int range)
+{
+   srandom(time(NULL) * random());
+   return (int)(range * ((double)(random())/INT_MAX));
 }

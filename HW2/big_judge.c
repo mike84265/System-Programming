@@ -19,6 +19,8 @@ int main(int argc, char** argv)
    pid_t* judgePID = (pid_t*)calloc(numJudge,sizeof(pid_t));
    int** judgePipe = (int**)calloc(numJudge*2,sizeof(int*));
    int* pList = (int*)calloc(numPlayer, sizeof(int));
+   int* jList = (int*)calloc(numJudge, sizeof(int));
+   int* score = (int*)calloc(numPlayer, sizeof(int));
    char** comb;
    combination(numPlayer,4,&comb);
 
@@ -28,7 +30,7 @@ int main(int argc, char** argv)
       judgePipe[2*i+1] = (int*)calloc(2,sizeof(int));
       pipe(judgePipe[2*i]);
       pipe(judgePipe[2*i+1]);
-      if ( (pid = fork()) != 0) {
+      if ( (pid = fork()) > 0) {
          // Parent process
          judgePID[i] = pid;
          close(judgePipe[2*i][1]);

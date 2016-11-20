@@ -12,5 +12,9 @@ CXX = gcc
 
 all:
 	@make util.o
+	@echo "Compiling big_judge..."
 	@$(CXX) $(CFLAGS) util.o big_judge.c -o big_judge.out
-	@make judge.out
+	@echo "Compiling judge..."
+	@$(CXX) $(CFLAGS) util.o judge.c -o judge.out
+	@echo "Compiling player..."
+	@$(CXX) $(CFLAGS) util.o player.c -o player.out

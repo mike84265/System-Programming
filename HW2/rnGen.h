@@ -1,7 +1,7 @@
-#include <ctime>
+#include <time.h>
 #include <unistd.h>
-#include <climits>
-#include <cstdlib>
+#include <limits.h>
+#include <stdlib.h>
 #ifndef RNGEN_H
 #define RNGEN_H
 class rnGen

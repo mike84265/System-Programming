@@ -108,6 +108,8 @@ int main(int argc, char** argv) {
         // TODO: Add IO multiplexing
         // Check new connection
         clilen = sizeof(cliaddr);
+        // int n = select(4, &r_set, &w_set, NULL, NULL);
+        // fprintf(stderr,"select passed... n=%d\n",n);
         conn_fd = accept(svr.listen_fd, (struct sockaddr*)&cliaddr, (socklen_t*)&clilen);
 
         if (conn_fd > 0) {
@@ -119,6 +121,8 @@ int main(int argc, char** argv) {
                 fprintf(stderr,"fcntl conn_fd F_SETFL error\n");
             requestP[conn_fd].conn_fd = conn_fd;
             strcpy(requestP[conn_fd].host, inet_ntoa(cliaddr.sin_addr));
+            FD_SET(conn_fd, &r_set);
+            FD_SET(conn_fd, &w_set);
             fprintf(stderr, "getting a new request... fd %d from %s\n", conn_fd, requestP[conn_fd].host);
             continue;
         } else {
