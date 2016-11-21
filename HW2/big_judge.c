@@ -62,20 +62,6 @@ int main(int argc, char** argv)
          fprintf(stderr,"fork error!\n");
       }
    }
-   #ifdef DEBUG
-   if (pid != 0) {
-      for (int i=0;i<numJudge;++i) {
-         char buf[1024];
-         sprintf(buf,"Testing judge %d...\n",i);
-         fprintf(stderr,"%s\n",buf);
-         if (write(judgePipe[2*i+1][1], buf, strlen(buf)) != strlen(buf))
-            fprintf(stderr,"write error\n");
-         if (read(judgePipe[2*i][0], buf, sizeof(buf)) <= 0)
-            fprintf(stderr,"read error\n");
-         fprintf(stderr,"Response from judge %d: %s",i,buf);
-      }
-   }
-   #endif
    // Assigning judges:
    // 1. Check the judge is free (by record)
    // 2. Check the players of that combination is all free
@@ -101,6 +87,9 @@ int main(int argc, char** argv)
                for (int k=0;k<4;++k)
                   pList[p[k]] = 1;
                jList[i] = 1;
+               #ifdef DEBUG
+               printf("big_judge > %d : %s",i,comb[j]);
+               #endif
                write(judgePipe[2*i+1][1], comb[j], strlen(comb[j]));
                comb[j] = NULL;
             }

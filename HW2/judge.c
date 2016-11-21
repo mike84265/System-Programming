@@ -17,21 +17,24 @@ int main(int argc, char** argv)
    char buf[1024];
    char str[32];
    int rFIFO, wFIFO[4];
+   Player player[4];
    sprintf(str,"judge%s.FIFO",argv[1]);
    mkfifo(str,0600);
-   rFIFO = open(str,O_RDONLY);
    for (int i=0;i<4;++i) {
       sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
       mkfifo(str,0600);
-      wFIFO[i] = open(str,O_WRONLY); 
+      player[i].ikey = rnGen(65536);
+      #ifdef DEBUG
+      fprintf(stderr,"player[%d].ikey = %d\n",i,player[i].ikey);
+      #endif
+      sprintf(player[i].ckey,"%d",player[i].ikey);
    }
 
    pid_t pid;
-   Player player[4];
    while (1) {
       fgets(buf,sizeof(buf),stdin);
       #ifdef DEBUG
-      printf("judge %d > %s\n", n, buf);
+      fprintf(stderr,"judge %d > %s\n", n, buf);
       #endif
       sscanf(buf,"%d %d %d %d\n",&player[0].id, &player[1].id, &player[2].id, &player[3].id);
       if (player[0].id == -1)
@@ -43,30 +46,41 @@ int main(int argc, char** argv)
          } else if (pid == 0) {
             // Child process
             sprintf(str,"%c",'A'+i);
-            player[i].ikey = rnGen(65536);
-            sprintf(player[i].ckey,"%d",player[i].ikey);
             execl("./player.out","player.out",argv[1],str,player[i].ckey,(char*)0);
             break;
          }
+      }
+      sprintf(str,"judge%s.FIFO",argv[1]);
+      rFIFO = open(str, O_RDONLY);
+      for (int i=0;i<4;++i) {
+         sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
+         wFIFO[i] = open(str, O_WRONLY);
       }
       // Game start
       int cumNum[3];
       for (int i=0;i<20;++i) {
          cumNum[0] = cumNum[1] = cumNum[2] = 0;
+         sleep(3);
          for (int j=0;j<4;++j) {
             #ifdef DEBUG
-            fprintf(stderr,"Reading response from %s_%c...\n",argv[1],'A'+i);
+            fprintf(stderr,"Reading response from %s...\n",argv[1]);
             #endif
-            read(rFIFO,player[i].resMsg,32);
+            read(rFIFO,buf,sizeof(buf));
             #ifdef DEBUG
-            fprintf(stderr,"Response from %s_%c: %s --\n",argv[1],'A'+i,player[i].resMsg);
+            fprintf(stderr,"Response from %s: \"%s\"\n",argv[1], buf);
             #endif
-            int temp;
-            sscanf(player[i].resMsg,"%s %d %d",str,&temp,&player[i].resNum);
-            if (temp != player[i].ikey) {
-               fprintf(stderr,"Key error: player%c, expected %d, got %d.\n",'A'+i,player[i].ikey,temp);
+            char tempChar;
+            int tempKey,tempNum;
+            sscanf(buf,"%c %d %d\n",&tempChar,&tempKey,&tempNum);
+            #ifdef DEBUG
+            fprintf(stderr,"tempChar = %c, tempKey = %d, tempNum = %d\n",tempChar,tempKey,tempNum);
+            #endif
+            int index = tempChar - 'A';
+            player[index].resNum = tempNum;
+            if (tempKey != player[index].ikey) {
+               fprintf(stderr,"Key error: player%c, expected %d, got %d.\n",'A'+index,player[index].ikey,tempKey);
             }
-            switch (player[i].resNum) {
+            switch (player[index].resNum) {
              case 1:
                ++cumNum[0];
                break;
@@ -81,6 +95,9 @@ int main(int argc, char** argv)
                break;
             }
          }
+         #ifdef DEBUG
+         fprintf(stderr,"A->%d B->%d C->%d D->%d\n",player[0].resNum,player[1].resNum,player[2].resNum,player[3].resNum);
+         #endif
          sprintf(str,"");
          for (int i=0;i<4;++i)
             sprintf(str,"%s%d ",str,player[i].resNum);
@@ -94,6 +111,12 @@ int main(int argc, char** argv)
                }
             }
          }
+      } // End of game
+      for (int i=0;i<4;++i) {
+         pid_t pid = wait(NULL);
+         #ifdef DEBUG
+         fprintf(stderr,"Process %d terminates.\n",pid);
+         #endif
       }
       int cmpScore[4];
       for (int i=0;i<4;++i)

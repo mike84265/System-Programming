@@ -1,5 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#ifndef UTIL_H
+#define UTIL_H
 void combination(const int n, const int r, char*** ret);
 int checkPlayer(char* comb, int* pList);
 void err_exit(const char* msg);
@@ -18,3 +21,4 @@ void init(Player*);
 int comparePlayer(const void* A, const void* B);
 int compareInt(const void* A, const void* B);
 int rnGen(const int range);
+#endif

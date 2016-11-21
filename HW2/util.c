@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 #include <limits.h>
+#include <sys/stat.h>
 static void print(int* arr, int r, char* ret)
 {
    sprintf(ret,"%d", arr[0]);
@@ -14,7 +15,7 @@ static void print(int* arr, int r, char* ret)
 }
 void combination(const int n, const int r, char*** ret)
 {
-   if (n<=4) { *ret = NULL; return; }
+   if (n<4) { *ret = NULL; return; }
    int size = n*(n-1)*(n-2)*(n-3)/24;
    *ret = (char**)calloc(size,sizeof(char*));
    for (int i=0;i<size;++i) {
@@ -92,6 +93,6 @@ int compareInt(const void* A, const void* B)
 
 int rnGen(const int range)
 {
-   srandom(time(NULL) * random());
+   srandom(getpid() * time(NULL) * random()); 
    return (int)(range * ((double)(random())/INT_MAX));
 }

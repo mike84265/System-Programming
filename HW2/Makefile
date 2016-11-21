@@ -4,7 +4,7 @@ CXX = gcc
 
 %.out: %.c
 	@echo "Compling $< ..."
-	@$(CXX) $(CFLAGS) $< -o $@
+	@$(CXX) $(CFLAGS) $< util.o -o $@
 
 %.o: %.c
 	@echo "Compiling $< ..."
@@ -12,9 +12,9 @@ CXX = gcc
 
 all:
 	@make util.o
-	@echo "Compiling big_judge..."
-	@$(CXX) $(CFLAGS) util.o big_judge.c -o big_judge.out
-	@echo "Compiling judge..."
-	@$(CXX) $(CFLAGS) util.o judge.c -o judge.out
-	@echo "Compiling player..."
-	@$(CXX) $(CFLAGS) util.o player.c -o player.out
+	@make big_judge.out
+	@make judge.out
+	@make player.out
+
+clean:
+	rm -f *.o *.out *.FIFO

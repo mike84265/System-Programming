@@ -17,23 +17,26 @@ int main(int argc, char** argv)
    #endif
    char buf[32];
    int fin, fout;
-   sprintf(buf,"judge%s_%s.FIFO",argv[1],argv[2]);
-   if ( (fin = open(buf,O_RDONLY)) < 0) {
-      fprintf(stderr, "Opening %s error\n", buf);
-      exit(1);
-   }
    sprintf(buf,"judge%s.FIFO",argv[1]);
    if ( (fout = open(buf,O_WRONLY)) < 0) {
       fprintf(stderr, "Opening %s error\n", buf);
       exit(1);
    }
+   sprintf(buf,"judge%s_%s.FIFO",argv[1],argv[2]);
+   if ( (fin = open(buf,O_RDONLY)) < 0) {
+      fprintf(stderr, "Opening %s error\n", buf);
+      exit(1);
+   }
    for (int i=0;i<20;++i) {
       // Format: index key num
-      sprintf(buf,"%s %s %d",argv[2],argv[3],rnGen(3)*2+1);
+      sprintf(buf,"%s %s %d\n",argv[2],argv[3],rnGen(3)*2+1);
       write(fout,buf,strlen(buf));
-      read(fin,buf,sizeof(buf));
       #ifdef DEBUG
       printf("%s_%s > %s\n",argv[1],argv[2],buf);
+      #endif
+      read(fin,buf,sizeof(buf));
+      #ifdef DEBUG
+      printf("%s_%s < %s\n",argv[1],argv[2],buf);
       #endif
    }
 }
