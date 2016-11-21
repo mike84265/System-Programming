@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <sys/select.h>
 #include <fcntl.h>
 #include <string.h>
 #include <assert.h>

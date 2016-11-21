@@ -93,8 +93,8 @@ int compareInt(const void* A, const void* B)
 
 int rnGen(const int range)
 {
-   srandom(getpid() * time(NULL) * random()); 
-   return (int)(range * ((double)(random())/INT_MAX));
+   srand(getpid() * time(NULL) * rand()); 
+   return (int)(range * ((double)(rand())/INT_MAX));
 }
 
 static int lock_reg(int fd, int cmd, int type, off_t offset, int whence, off_t len)
