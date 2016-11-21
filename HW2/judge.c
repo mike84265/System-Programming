@@ -13,28 +13,29 @@ int main(int argc, char** argv)
       fprintf(stderr,"Usage: %s <judge_id>\n", argv[0]);
       exit(1);
    }
-   #ifdef DEBUG
    int n = atoi(argv[1]);
    char buf[1024];
-   if (fgets(buf,sizeof(buf),stdin) != NULL) {
-      printf("judge %d > %s\n", n, buf);
-   }
-   #endif
    char str[32];
    int rFIFO, wFIFO[4];
    sprintf(str,"judge%s.FIFO",argv[1]);
-   rFIFO = mkfifo(str,O_CREAT | O_RDONLY);
+   mkfifo(str,0600);
+   rFIFO = open(str,O_RDONLY);
    for (int i=0;i<4;++i) {
       sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
-      wFIFO[i] = mkfifo(str,O_CREAT | O_WRONLY);
+      mkfifo(str,0600);
+      wFIFO[i] = open(str,O_WRONLY); 
    }
 
    pid_t pid;
    Player player[4];
    while (1) {
-      scanf("%d %d %d %d\n",&player[0].id, &player[1].id, &player[2].id, &player[3].id);
+      fgets(buf,sizeof(buf),stdin);
+      #ifdef DEBUG
+      printf("judge %d > %s\n", n, buf);
+      #endif
+      sscanf(buf,"%d %d %d %d\n",&player[0].id, &player[1].id, &player[2].id, &player[3].id);
       if (player[0].id == -1)
-         exit(0);
+         break;
       for (int i=0;i<4;++i) {
          if ( (pid = fork()) > 0) {
             // Parent process
@@ -105,7 +106,16 @@ int main(int argc, char** argv)
                break;
             }
          }
-         printf("%d %d\n",player[i].id,player[i].rank);
+         // j = [0..3], rank = [1..4]
+         printf("%d %d\n",player[i].id,player[i].rank+1);
       }
+   }
+   sprintf(str,"judge%s.FIFO",argv[1]);
+   close(rFIFO);
+   unlink(str);
+   for (int i=0;i<4;++i) {
+      sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
+      close(wFIFO[i]);
+      unlink(str);
    }
 }

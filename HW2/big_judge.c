@@ -5,6 +5,7 @@
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <string.h>
+#include <assert.h>
 #include "util.h"
 int main(int argc, char** argv)
 {
@@ -15,6 +16,11 @@ int main(int argc, char** argv)
 
    const int numJudge = atoi(argv[1]);
    const int numPlayer = atoi(argv[2]);
+   if (numPlayer < 4) {
+      fprintf(stderr, "Number of players cannot less than 4.\n");
+      exit(1);
+   }
+   char buf[1024];
    pid_t pid;
    pid_t* judgePID = (pid_t*)calloc(numJudge,sizeof(pid_t));
    int** judgePipe = (int**)calloc(numJudge*2,sizeof(int*));
@@ -23,6 +29,10 @@ int main(int argc, char** argv)
    int* score = (int*)calloc(numPlayer, sizeof(int));
    char** comb;
    combination(numPlayer,4,&comb);
+   int num_of_comb = 1;
+   for (int i=0;i<4;++i)
+      num_of_comb *= (numPlayer-i);
+   num_of_comb /= 24;
 
    for (int i=0;i<numJudge;++i) {
       // 2i: parent(R), child(W);  2i+1: child(R), parent(W)
@@ -66,7 +76,61 @@ int main(int argc, char** argv)
       }
    }
    #endif
+   // Assigning judges:
+   // 1. Check the judge is free (by record)
+   // 2. Check the players of that combination is all free
+   // 3. Assign and record on pList and jList
+   // 4. Using select to get responses from child processes.
+   fd_set rset;
+   FD_ZERO(&rset);
+   while (1) {
+      int end = 1;
+      for (int i=0;i<numJudge;++i) {
+         FD_SET(judgePipe[2*i+1][1],&rset);
+      }
+      for (int i=0;i<numJudge;++i) {
+         if (jList[i] == 1) continue;
+         for (int j=0;j<num_of_comb;++i) {
+            if (comb[j] != NULL)
+               end = 0;
+            else
+               continue;
+            if (checkPlayer(comb[j],pList) == 0) {
+               int p[4];
+               sscanf(comb[j],"%d %d %d %d\n",&p[0],&p[1],&p[2],&p[3]);
+               for (int k=0;k<4;++k)
+                  pList[p[k]] = 1;
+               jList[i] = 1;
+               write(judgePipe[2*i+1][1], comb[j], strlen(comb[j]));
+               comb[j] = NULL;
+            }
+         }
+      }
+      if (end == 1) break;
+      assert(select(1024,&rset,NULL,NULL,NULL) != -1);
+      // One of judge has over the game:
+      // 1. Get scores from the pipe.
+      // 2. Reset all status:
+      //    (1) pList
+      //    (2) jList
+      for (int i=0;i<numJudge;++i) {
+         if (FD_ISSET(judgePipe[2*i][0],&rset)) {
+            for (int j=0;j<4;++j) {
+               read(judgePipe[2*i][0], buf, sizeof(buf));
+               int id, rank;
+               sscanf(buf,"%d %d\n",&id,&rank);
+               assert(pList[id] == 1);
+               pList[id] = 0;
+               score[id] += 4-rank; 
+            }
+            jList[i] = 0;
+            break;
+         }
+      }
+   }
    for (int i=0;i<numJudge;++i) {
+      sprintf(buf,"-1 -1 -1 -1\n");
+      write(judgePipe[2*i+1][1],buf,strlen(buf));
       pid_t p = wait(NULL);
       fprintf(stderr,"Process %d terminates.\n",p);
    }

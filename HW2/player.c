@@ -12,6 +12,9 @@ int main(int argc, char** argv)
       fprintf(stderr, "Usage: %s <judge_id> <player_index> <random_key>\n",argv[0]);
       exit(1);
    }
+   #ifdef DEBUG
+   fprintf(stderr, "%s %s %s %s executed\n", argv[0], argv[1], argv[2], argv[3]);
+   #endif
    char buf[32];
    int fin, fout;
    sprintf(buf,"judge%s_%s.FIFO",argv[1],argv[2]);

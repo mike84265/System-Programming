@@ -56,6 +56,8 @@ void combination(const int n, const int r, char*** ret)
 
 int checkPlayer(char* comb, int* pList)
 {
+   if (comb == NULL)
+      return 1;
    int p[4];
    sscanf(comb,"%d %d %d %d\n",&p[0],&p[1],&p[2],&p[3]);
    return (pList[p[0]] | pList[p[1]] | pList[p[2]] | pList[p[3]]);
