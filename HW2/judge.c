@@ -23,6 +23,15 @@ int main(int argc, char** argv)
 
    pid_t pid;
    while (1) {
+      fgets(buf,sizeof(buf),stdin);
+      #ifdef DEBUG
+      fprintf(stderr,"judge %d > %s\n", n, buf);
+      #endif
+      for (int i=0;i<4;++i)
+         init(&player[i]);
+      sscanf(buf,"%d %d %d %d\n",&player[0].id, &player[1].id, &player[2].id, &player[3].id);
+      if (player[0].id == -1)
+         break;
       sprintf(str,"judge%s.FIFO",argv[1]);
       if (mkfifo(str,0600) != 0) {
          if (errno == EEXIST) {
@@ -44,13 +53,6 @@ int main(int argc, char** argv)
          #endif
          sprintf(player[i].ckey,"%d",player[i].ikey);
       }
-      fgets(buf,sizeof(buf),stdin);
-      #ifdef DEBUG
-      fprintf(stderr,"judge %d > %s\n", n, buf);
-      #endif
-      sscanf(buf,"%d %d %d %d\n",&player[0].id, &player[1].id, &player[2].id, &player[3].id);
-      if (player[0].id == -1)
-         break;
       for (int i=0;i<4;++i) {
          if ( (pid = fork()) > 0) {
             // Parent process
@@ -78,7 +80,7 @@ int main(int argc, char** argv)
          #endif
          read(rFIFO,buf,sizeof(buf));
          #ifdef DEBUG
-         fprintf(stderr,"Response from %s: \"%s\"\n",argv[1], buf);
+         fprintf(stderr,"Response from %s: %s\n",argv[1], buf);
          #endif
          char bufLine[10][128];
          char* pch = strtok(buf,"\n");
