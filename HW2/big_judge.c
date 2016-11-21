@@ -97,6 +97,10 @@ int main(int argc, char** argv)
       }
       if (end == 1) break;
       assert(select(1024,&rset,NULL,NULL,NULL) != -1);
+      #ifdef DEBUG
+      read(judgePipe[2][0],buf,sizeof(buf));
+      fprintf(stderr,"big_judge < %s", buf);
+      #endif
       // One of judge has over the game:
       // 1. Get scores from the pipe.
       // 2. Reset all status:

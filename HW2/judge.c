@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "util.h"
+#include <errno.h>
 int main(int argc, char** argv)
 {
    if (argc != 2) {
@@ -18,20 +19,30 @@ int main(int argc, char** argv)
    char str[32];
    int rFIFO, wFIFO[4];
    Player player[4];
-   sprintf(str,"judge%s.FIFO",argv[1]);
-   mkfifo(str,0600);
-   for (int i=0;i<4;++i) {
-      sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
-      mkfifo(str,0600);
-      player[i].ikey = rnGen(65536);
-      #ifdef DEBUG
-      fprintf(stderr,"player[%d].ikey = %d\n",i,player[i].ikey);
-      #endif
-      sprintf(player[i].ckey,"%d",player[i].ikey);
-   }
 
    pid_t pid;
    while (1) {
+      sprintf(str,"judge%s.FIFO",argv[1]);
+      if (mkfifo(str,0600) != 0) {
+         if (errno == EEXIST) {
+            unlink(str);
+            mkfifo(str,0600);
+         }
+      }
+      for (int i=0;i<4;++i) {
+         sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
+         if (mkfifo(str,0600) != 0) {
+            if (errno == EEXIST) {
+               unlink(str);
+               mkfifo(str,0600);
+            }
+         }
+         player[i].ikey = rnGen(65536);
+         #ifdef DEBUG
+         fprintf(stderr,"player[%d].ikey = %d\n",i,player[i].ikey);
+         #endif
+         sprintf(player[i].ckey,"%d",player[i].ikey);
+      }
       fgets(buf,sizeof(buf),stdin);
       #ifdef DEBUG
       fprintf(stderr,"judge %d > %s\n", n, buf);
@@ -84,6 +95,7 @@ int main(int argc, char** argv)
             fprintf(stderr,"tempChar = %c, tempKey = %d, tempNum = %d\n",tempChar,tempKey,tempNum);
             #endif
             int index = tempChar - 'A';
+            assert(index>=0 && index < 4);
             player[index].resNum = tempNum;
             if (tempKey != player[index].ikey) {
                fprintf(stderr,"Key error: player%c, expected %d, got %d.\n",'A'+index,player[index].ikey,tempKey);
@@ -155,13 +167,13 @@ int main(int argc, char** argv)
          fprintf(stderr,"judge %s > big_judge : %d %d\n",argv[1], player[i].id,player[i].rank+1);
          #endif
       }
-   } // End of while
-   sprintf(str,"judge%s.FIFO",argv[1]);
-   close(rFIFO);
-   unlink(str);
-   for (int i=0;i<4;++i) {
-      sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
-      close(wFIFO[i]);
+      sprintf(str,"judge%s.FIFO",argv[1]);
+      close(rFIFO);
       unlink(str);
-   }
+      for (int i=0;i<4;++i) {
+         sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
+         close(wFIFO[i]);
+         unlink(str);
+      }
+   } // End of while
 }

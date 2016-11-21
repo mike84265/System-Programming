@@ -81,7 +81,7 @@ int comparePlayer(const void* A, const void* B)
    Player* pA = (Player*)A;
    Player* pB = (Player*)B;
    if (pA->score != pB->score)
-      return (pA->score - pB->score);
+      return (pB->score - pA->score);
    else 
       return (pA->id - pB->id);
 }
