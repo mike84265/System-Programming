@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <fcntl.h>
 #ifndef UTIL_H
 #define UTIL_H
 void combination(const int n, const int r, char*** ret);
@@ -21,4 +22,7 @@ void init(Player*);
 int comparePlayer(const void* A, const void* B);
 int compareInt(const void* A, const void* B);
 int rnGen(const int range);
+int write_lock(int fd);
+int un_lock(int fd);
+pid_t lock_test(int fd);
 #endif

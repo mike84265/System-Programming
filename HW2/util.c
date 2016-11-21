@@ -96,3 +96,38 @@ int rnGen(const int range)
    srandom(getpid() * time(NULL) * random()); 
    return (int)(range * ((double)(random())/INT_MAX));
 }
+
+static int lock_reg(int fd, int cmd, int type, off_t offset, int whence, off_t len)
+{
+    struct flock lock;
+    
+    lock.l_type = type;
+    lock.l_start = offset;
+    lock.l_whence = whence;
+    lock.l_len = len;
+
+    return fcntl(fd,cmd,&lock);
+}
+
+int write_lock(int fd)
+{ return lock_reg(fd, F_SETLK, F_WRLCK, SEEK_SET, 0, 0); }
+
+int un_lock(int fd)
+{ return lock_reg(fd, F_SETLK, F_UNLCK, SEEK_SET, 0, 0); }
+
+
+pid_t lock_test(int fd)
+{
+    struct flock lock;
+    lock.l_type = F_WRLCK;
+    lock.l_start = SEEK_SET;
+    lock.l_whence = 0;
+    lock.l_len = 0;
+
+    if (fcntl(fd,F_GETLK,&lock) < 0)
+        fprintf(stderr,"fcntl error");
+    if (lock.l_type == F_UNLCK)
+        return 0;
+    else
+        return lock.l_pid;
+}

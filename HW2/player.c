@@ -30,13 +30,20 @@ int main(int argc, char** argv)
    for (int i=0;i<20;++i) {
       // Format: index key num
       sprintf(buf,"%s %s %d\n",argv[2],argv[3],rnGen(3)*2+1);
+      while (write_lock(fout) == -1) {
+         pid_t pid = lock_test(fout);
+         #ifdef DEBUG
+         fprintf(stderr,"Waiting for %d to write...\n",pid);
+         #endif
+      }
       write(fout,buf,strlen(buf));
+      un_lock(fout);
       #ifdef DEBUG
-      printf("%s_%s > %s\n",argv[1],argv[2],buf);
+      fprintf(stderr,"%s_%s > %s",argv[1],argv[2],buf);
       #endif
       read(fin,buf,sizeof(buf));
       #ifdef DEBUG
-      printf("%s_%s < %s\n",argv[1],argv[2],buf);
+      fprintf(stderr,"%s_%s < %s",argv[1],argv[2],buf);
       #endif
    }
 }

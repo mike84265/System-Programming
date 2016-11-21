@@ -22,11 +22,11 @@ int main(int argc, char** argv)
    }
    char buf[1024];
    pid_t pid;
-   pid_t* judgePID = (pid_t*)calloc(numJudge,sizeof(pid_t));
-   int** judgePipe = (int**)calloc(numJudge*2,sizeof(int*));
-   int* pList = (int*)calloc(numPlayer, sizeof(int));
-   int* jList = (int*)calloc(numJudge, sizeof(int));
-   int* score = (int*)calloc(numPlayer, sizeof(int));
+   pid_t* judgePID = (pid_t*)calloc(numJudge+1,sizeof(pid_t));
+   int** judgePipe = (int**)calloc((numJudge+1)*2,sizeof(int*));
+   int* pList = (int*)calloc(numPlayer+1, sizeof(int));
+   int* jList = (int*)calloc(numJudge+1, sizeof(int));
+   int* score = (int*)calloc(numPlayer+1, sizeof(int));
    char** comb;
    combination(numPlayer,4,&comb);
    int num_of_comb = 1;
@@ -34,7 +34,7 @@ int main(int argc, char** argv)
       num_of_comb *= (numPlayer-i);
    num_of_comb /= 24;
 
-   for (int i=0;i<numJudge;++i) {
+   for (int i=1;i<=numJudge;++i) {
       // 2i: parent(R), child(W);  2i+1: child(R), parent(W)
       judgePipe[2*i] = (int*)calloc(2,sizeof(int));
       judgePipe[2*i+1] = (int*)calloc(2,sizeof(int));
@@ -71,12 +71,12 @@ int main(int argc, char** argv)
    FD_ZERO(&rset);
    while (1) {
       int end = 1;
-      for (int i=0;i<numJudge;++i) {
-         FD_SET(judgePipe[2*i+1][1],&rset);
+      for (int i=1;i<=numJudge;++i) {
+         FD_SET(judgePipe[2*i][0],&rset);
       }
-      for (int i=0;i<numJudge;++i) {
+      for (int i=1;i<=numJudge;++i) {
          if (jList[i] == 1) continue;
-         for (int j=0;j<num_of_comb;++i) {
+         for (int j=0;j<num_of_comb;++j) {
             if (comb[j] != NULL)
                end = 0;
             else
@@ -102,12 +102,25 @@ int main(int argc, char** argv)
       // 2. Reset all status:
       //    (1) pList
       //    (2) jList
-      for (int i=0;i<numJudge;++i) {
+      for (int i=1;i<=numJudge;++i) {
          if (FD_ISSET(judgePipe[2*i][0],&rset)) {
+            read(judgePipe[2*i][0], buf, sizeof(buf));
+            #ifdef DEBUG
+            fprintf(stderr,"big_judge < %s",buf);
+            #endif
+            char bufLine[4][64];
+            char* pch = strtok(buf,"\n");
+            int len = 0;
+            while (pch != NULL) {
+               strcpy(bufLine[len],pch);
+               pch = strtok(NULL,"\n");
+            }
             for (int j=0;j<4;++j) {
-               read(judgePipe[2*i][0], buf, sizeof(buf));
                int id, rank;
                sscanf(buf,"%d %d\n",&id,&rank);
+               #ifdef DEBUG
+               fprintf(stderr,"id=%d, rank=%d\n",id,rank);
+               #endif
                assert(pList[id] == 1);
                pList[id] = 0;
                score[id] += 4-rank; 
@@ -117,7 +130,7 @@ int main(int argc, char** argv)
          }
       }
    }
-   for (int i=0;i<numJudge;++i) {
+   for (int i=1;i<=numJudge;++i) {
       sprintf(buf,"-1 -1 -1 -1\n");
       write(judgePipe[2*i+1][1],buf,strlen(buf));
       pid_t p = wait(NULL);
