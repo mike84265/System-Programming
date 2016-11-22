@@ -16,8 +16,15 @@ typedef struct {
    int resNum;
    int rank;
 } Player;
+
+typedef struct {
+   int id;
+   int score;
+} Record;
+
 void init(Player*);
 int comparePlayer(const void* A, const void* B);
 int compareInt(const void* A, const void* B);
+int compareRecord(const void* A, const void* B);
 int rnGen(const int range);
 #endif

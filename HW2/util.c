@@ -91,43 +91,18 @@ int compareInt(const void* A, const void* B)
    return *(int*)A - *(int*)B;
 }
 
+int compareRecord(const void* A, const void* B)
+{
+   Record* pA = (Record*)A;
+   Record* pB = (Record*)B;
+   if (pA->score != pB->score)
+      return (pB->score - pA->score);
+   else
+      return (pA->id - pB->id);
+}
 int rnGen(const int range)
 {
    srand(getpid() * time(NULL) * rand()); 
    return (int)(range * ((double)(rand())/INT_MAX));
 }
 
-static int lock_reg(int fd, int cmd, int type, off_t offset, int whence, off_t len)
-{
-    struct flock lock;
-    
-    lock.l_type = type;
-    lock.l_start = offset;
-    lock.l_whence = whence;
-    lock.l_len = len;
-
-    return fcntl(fd,cmd,&lock);
-}
-
-int write_lock(int fd)
-{ return lock_reg(fd, F_SETLK, F_WRLCK, SEEK_SET, 0, 0); }
-
-int un_lock(int fd)
-{ return lock_reg(fd, F_SETLK, F_UNLCK, SEEK_SET, 0, 0); }
-
-
-pid_t lock_test(int fd)
-{
-    struct flock lock;
-    lock.l_type = F_WRLCK;
-    lock.l_start = SEEK_SET;
-    lock.l_whence = 0;
-    lock.l_len = 0;
-
-    if (fcntl(fd,F_GETLK,&lock) < 0)
-        fprintf(stderr,"fcntl error");
-    if (lock.l_type == F_UNLCK)
-        return 0;
-    else
-        return lock.l_pid;
-}

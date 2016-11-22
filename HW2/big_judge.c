@@ -97,10 +97,6 @@ int main(int argc, char** argv)
          }
       }
       if (end == 1) break;
-      #ifdef DEBUG
-      read(judgePipe[2][0],buf,sizeof(buf));
-      fprintf(stderr,"big_judge < %s", buf);
-      #endif
       assert(select(1024,&rset,NULL,NULL,NULL) != -1);
       // One of judge has over the game:
       // 1. Get scores from the pipe.
@@ -116,13 +112,14 @@ int main(int argc, char** argv)
             char bufLine[4][64];
             char* pch = strtok(buf,"\n");
             int len = 0;
-            while (pch != NULL) {
+            while (pch != NULL && len<4) {
                strcpy(bufLine[len],pch);
                pch = strtok(NULL,"\n");
+               ++len;
             }
             for (int j=0;j<4;++j) {
                int id, rank;
-               sscanf(buf,"%d %d\n",&id,&rank);
+               sscanf(bufLine[j],"%d %d\n",&id,&rank);
                #ifdef DEBUG
                fprintf(stderr,"id=%d, rank=%d\n",id,rank);
                #endif
@@ -140,5 +137,14 @@ int main(int argc, char** argv)
       write(judgePipe[2*i+1][1],buf,strlen(buf));
       pid_t p = wait(NULL);
       fprintf(stderr,"Process %d terminates.\n",p);
+   }
+   Record record[30];
+   for (int i=1;i<=numPlayer;++i) {
+      record[i].id = i;
+      record[i].score = score[i];
+   }
+   qsort((record+1),numPlayer,sizeof(Record),compareRecord);
+   for (int i=1;i<=numPlayer;++i) {
+      printf("%d %d\n",record[i].id,record[i].score);
    }
 }

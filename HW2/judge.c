@@ -173,6 +173,7 @@ int main(int argc, char** argv)
          fprintf(stderr,"judge %s > big_judge : %d %d\n",argv[1], player[i].id,player[i].rank+1);
          #endif
       }
+      fflush(stdout);
       sprintf(str,"judge%s.FIFO",argv[1]);
       close(rFIFO);
       unlink(str);
