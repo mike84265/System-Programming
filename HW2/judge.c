@@ -25,7 +25,7 @@ int main(int argc, char** argv)
    pid_t pid;
    while (1) {
       fgets(buf,sizeof(buf),stdin);
-      #ifdef DEBUG
+      #if DEBUG>=2
       fprintf(stderr,"judge %d > %s\n", n, buf);
       #endif
       for (int i=0;i<4;++i)
@@ -49,7 +49,7 @@ int main(int argc, char** argv)
             }
          }
          player[i].ikey = rnGen(65536);
-         #ifdef DEBUG
+         #if DEBUG>=3
          fprintf(stderr,"player[%d].ikey = %d\n",i,player[i].ikey);
          #endif
          sprintf(player[i].ckey,"%d",player[i].ikey);
@@ -77,7 +77,6 @@ int main(int argc, char** argv)
       int cumNum[3];
       for (int i=0;i<20;++i) {
          cumNum[0] = cumNum[1] = cumNum[2] = 0;
-         // sleep(1);
          char bufLine[10][128];
          char tempChar;
          int tempKey,tempNum;
@@ -139,7 +138,7 @@ int main(int argc, char** argv)
                }
             }
          }
-         #ifdef DEBUG
+         #if DEBUG>=2
          for (int i=0;i<4;++i)
             fprintf(stderr,"%c->%d/%d ",'A'+i, player[i].resNum,player[i].score);
          fprintf(stderr,"\n");
@@ -155,7 +154,7 @@ int main(int argc, char** argv)
       for (int i=0;i<4;++i) {
          pid_t pid = wait(NULL);
          close(wFIFO[i]);
-         #ifdef DEBUG
+         #if DEBUG>=4
          fprintf(stderr,"Process %d terminates.\n",pid);
          #endif
       }
@@ -173,7 +172,7 @@ int main(int argc, char** argv)
          }
          // j = [0..3], rank = [1..4]
          printf("%d %d\n",player[i].id,player[i].rank+1);
-         #ifdef DEBUG
+         #if DEBUG>=1
          fprintf(stderr,"judge %s > big_judge : %d %d\n",argv[1], player[i].id,player[i].rank+1);
          #endif
       }
