@@ -119,8 +119,11 @@ int main(int argc, char** argv)
             }
          }
          sprintf(str,"");
-         for (int i=0;i<4;++i)
-            sprintf(str,"%s%d ",str,player[i].resNum);
+         for (int i=0;i<4;++i) {
+            char buf2[64];
+            sprintf(buf2,"%d ",player[i].resNum);
+            strcat(str,buf2);
+         }
          str[strlen(str)-1] = '\n';
          for (int j=0;j<4;++j)
             write(wFIFO[j],str,strlen(str));
