@@ -12,7 +12,7 @@ int main(int argc, char** argv)
       fprintf(stderr, "Usage: %s <judge_id> <player_index> <random_key>\n",argv[0]);
       exit(1);
    }
-   #ifdef DEBUG
+   #if DEBUG>=3
    fprintf(stderr, "%s %s %s %s executed\n", argv[0], argv[1], argv[2], argv[3]);
    #endif
    char buf[32];
@@ -27,15 +27,20 @@ int main(int argc, char** argv)
       fprintf(stderr, "Opening %s error\n", buf);
       exit(1);
    }
+   FILE *infile,*outfile;
+   infile = fdopen(fin,"r");
+   outfile = fdopen(fout,"w");
    for (int i=0;i<20;++i) {
       // Format: index key num
       sprintf(buf,"%s %s %d\n",argv[2],argv[3],rnGen(3)*2+1);
-      write(fout,buf,strlen(buf));
-      #ifdef DEBUG
+      // write(fout,buf,strlen(buf));
+      fprintf(outfile,"%s %s %d\n",argv[2],argv[3],rnGen(3)*2+1);
+      fflush(outfile);
+      #if DEBUG>=3
       fprintf(stderr,"%s_%s > %s",argv[1],argv[2],buf);
       #endif
       read(fin,buf,sizeof(buf));
-      #ifdef DEBUG
+      #if DEBUG>=3
       fprintf(stderr,"%s_%s < %s",argv[1],argv[2],buf);
       #endif
    }

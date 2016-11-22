@@ -1,5 +1,5 @@
 CFLAGS = -std=c99 -O3 -Wall
-CFLAGS = -std=c99 -g -Wall -DDEBUG
+CFLAGS = -std=c99 -g -Wall -DDEBUG=2
 CXX = gcc
 
 %.out: %.c

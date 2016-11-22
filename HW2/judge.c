@@ -19,6 +19,7 @@ int main(int argc, char** argv)
    char buf[1024];
    char str[32];
    int rFIFO, wFIFO[4];
+   FILE *rfFIFO, *wfFIFO[4];
    Player player[4];
 
    pid_t pid;
@@ -66,35 +67,38 @@ int main(int argc, char** argv)
       }
       sprintf(str,"judge%s.FIFO",argv[1]);
       rFIFO = open(str, O_RDONLY);
+      rfFIFO = fdopen(rFIFO,"r");
       for (int i=0;i<4;++i) {
          sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
          wFIFO[i] = open(str, O_WRONLY);
+         wfFIFO[i] = fdopen(wFIFO[i],"w");
       }
       // Game start
       int cumNum[3];
       for (int i=0;i<20;++i) {
          cumNum[0] = cumNum[1] = cumNum[2] = 0;
-         sleep(1);
-         #ifdef DEBUG
-         fprintf(stderr,"Reading response from %s...\n",argv[1]);
-         #endif
-         read(rFIFO,buf,sizeof(buf));
-         #ifdef DEBUG
-         fprintf(stderr,"Response from %s: %s\n",argv[1], buf);
-         #endif
+         // sleep(1);
          char bufLine[10][128];
-         char* pch = strtok(buf,"\n");
-         int len = 0;
-         while (pch != NULL) {
-            strcpy(bufLine[len],pch);
-            pch = strtok(NULL,"\n");
-            ++len;
-         }
-         for (int j=0;j<len;++j) {
-            char tempChar;
-            int tempKey,tempNum;
-            sscanf(bufLine[j],"%c %d %d\n",&tempChar,&tempKey,&tempNum);
-            #ifdef DEBUG
+         char tempChar;
+         int tempKey,tempNum;
+         fd_set rset;
+         int validPlayer = 4;
+         for (int i=0;i<validPlayer;++i) {
+            #if DEBUG>=3
+            fprintf(stderr,"Reading response from %s...\n",argv[1]);
+            #endif
+            FD_ZERO(&rset);
+            FD_SET(rFIFO,&rset);
+            struct timeval tv;
+            tv.tv_sec = 1;
+            // int n,p;
+            // n = select(100,&rset,NULL,NULL,&tv);
+            // p = FD_ISSET(rFIFO,&rset);
+            // fscanf(rfFIFO,"%c%d%d\n",&tempChar,&tempKey,&tempNum);
+            fgets(bufLine[i],sizeof(bufLine[i]),rfFIFO);
+            sscanf(bufLine[i],"%c %d %d\n",&tempChar, &tempKey, &tempNum);
+            #if DEBUG>=3
+            // fprintf(stderr,"n = %d, p = %d, tempChar = %c, tempKey = %d, tempNum = %d\n",n,p,tempChar,tempKey,tempNum);
             fprintf(stderr,"tempChar = %c, tempKey = %d, tempNum = %d\n",tempChar,tempKey,tempNum);
             #endif
             int index = tempChar - 'A';

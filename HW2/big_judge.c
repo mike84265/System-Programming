@@ -88,7 +88,7 @@ int main(int argc, char** argv)
                for (int k=0;k<4;++k)
                   pList[p[k]] = 1;
                jList[i] = 1;
-               #ifdef DEBUG
+               #if DEBUG>=1
                printf("big_judge > %d : %s",i,comb[j]);
                #endif
                write(judgePipe[2*i+1][1], comb[j], strlen(comb[j]));
@@ -106,7 +106,7 @@ int main(int argc, char** argv)
       for (int i=1;i<=numJudge;++i) {
          if (FD_ISSET(judgePipe[2*i][0],&rset)) {
             read(judgePipe[2*i][0], buf, sizeof(buf));
-            #ifdef DEBUG
+            #if DEBUG>=1
             fprintf(stderr,"big_judge < %s",buf);
             #endif
             char bufLine[4][64];
@@ -120,7 +120,7 @@ int main(int argc, char** argv)
             for (int j=0;j<4;++j) {
                int id, rank;
                sscanf(bufLine[j],"%d %d\n",&id,&rank);
-               #ifdef DEBUG
+               #if DEBUG>=1
                fprintf(stderr,"id=%d, rank=%d\n",id,rank);
                #endif
                assert(pList[id] == 1);
