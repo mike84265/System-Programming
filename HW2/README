@@ -1,0 +1,10 @@
+Compile:
+   Type 'make' and all codes will be compiled.
+
+Optional messages:
+   You can choose to what extent should messages should be showed.
+   In 'Makefile', the argument DEBUG in CFLAGS controls the debug level.
+   By default (not assigned, and -O3), DEBUG=0 and no other except ranking
+   will be shown.
+   If CFLAGS assigns DEBUG (can be 1, 2, 3, or 4), the more that value, the
+   more messages will be shown, which will be output to stderr.

@@ -7,6 +7,7 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
+#include <signal.h>
 #include <fcntl.h>
 #include "util.h"
 #include <errno.h>
@@ -132,7 +133,8 @@ int main(int argc, char** argv)
                if (player[i].pid != 0) {
                   fprintf(stderr,"No response from player %c.\n",'A'+i);
                   fprintf(stderr,"Kill %d\n",player[i].pid);
-                  kill(player[i].pid);
+                  kill(player[i].pid,SIGABRT);
+                  wait(NULL);
                   player[i].pid = 0;
                }
             }
@@ -165,15 +167,18 @@ int main(int argc, char** argv)
       } // End of game
       for (int i=0;i<validPlayer;++i) {
          pid_t pid = wait(NULL);
-         close(wFIFO[i]);
          #if DEBUG>=4
          fprintf(stderr,"Process %d terminates.\n",pid);
          #endif
       }
       close(rFIFO);
+      fclose(rfFIFO);
       int cmpScore[4];
-      for (int i=0;i<4;++i)
+      for (int i=0;i<4;++i) {
          cmpScore[i] = player[i].score;
+         close(wFIFO[i]);
+         fclose(wfFIFO[i]);
+      }
       qsort(cmpScore,4,sizeof(int),compareInt);
       for (int i=0;i<4;++i) {
          for (int j=3;j>=0;--j) {

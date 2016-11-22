@@ -32,11 +32,18 @@ int main(int argc, char** argv)
    outfile = fdopen(fout,"w");
    for (int i=0;i<20;++i) {
       // Format: index key num
-      // sprintf(buf,"%s %s %d\n",argv[2],argv[3],rnGen(3)*2+1);
-      // if (strcmp(argv[2],"A") == 0)
-      //    sleep(5);
-      // write(fout,buf,strlen(buf));
-      fprintf(outfile,"%s %s %d\n",argv[2],argv[3],rnGen(3)*2+1);
+      #if DEBUG>=4
+      if (strcmp(argv[2],"A") == 0)
+         fprintf(outfile,"%s %s %d\n",argv[2],argv[3],1);
+      else if (strcmp(argv[2],"B") == 0)
+         fprintf(outfile,"%s %s %d\n",argv[2],argv[3],3);
+      else if (strcmp(argv[2],"C") == 0)
+         fprintf(outfile,"%s %s %d\n",argv[2],argv[3],5);
+      else if (strcmp(argv[2],"D") == 0)
+         sleep(5);
+      #else
+      fprintf(outfile,"%s %s %d\n",argv[2],argv[3],2*rnGen(3)+1);
+      #endif
       fflush(outfile);
       #if DEBUG>=3
       fprintf(stderr,"%s_%s > %s",argv[1],argv[2],buf);

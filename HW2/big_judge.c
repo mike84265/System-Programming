@@ -137,7 +137,9 @@ int main(int argc, char** argv)
       sprintf(buf,"-1 -1 -1 -1\n");
       write(judgePipe[2*i+1][1],buf,strlen(buf));
       pid_t p = wait(NULL);
+      #if DEBUG>=1
       fprintf(stderr,"Process %d terminates.\n",p);
+      #endif
    }
    Record record[30];
    for (int i=1;i<=numPlayer;++i) {

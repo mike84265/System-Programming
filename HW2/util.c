@@ -88,7 +88,7 @@ int comparePlayer(const void* A, const void* B)
 
 int compareInt(const void* A, const void* B)
 {
-   return *(int*)A - *(int*)B;
+   return *(int*)B - *(int*)A;
 }
 
 int compareRecord(const void* A, const void* B)
