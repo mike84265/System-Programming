@@ -93,6 +93,7 @@ int main(int argc, char** argv)
                #endif
                write(judgePipe[2*i+1][1], comb[j], strlen(comb[j]));
                comb[j] = NULL;
+               break;
             }
          }
       }

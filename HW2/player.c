@@ -32,7 +32,9 @@ int main(int argc, char** argv)
    outfile = fdopen(fout,"w");
    for (int i=0;i<20;++i) {
       // Format: index key num
-      sprintf(buf,"%s %s %d\n",argv[2],argv[3],rnGen(3)*2+1);
+      // sprintf(buf,"%s %s %d\n",argv[2],argv[3],rnGen(3)*2+1);
+      // if (strcmp(argv[2],"A") == 0)
+      //    sleep(5);
       // write(fout,buf,strlen(buf));
       fprintf(outfile,"%s %s %d\n",argv[2],argv[3],rnGen(3)*2+1);
       fflush(outfile);

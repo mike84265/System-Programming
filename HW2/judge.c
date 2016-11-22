@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <fcntl.h>
 #include "util.h"
 #include <errno.h>
@@ -68,6 +69,7 @@ int main(int argc, char** argv)
       sprintf(str,"judge%s.FIFO",argv[1]);
       rFIFO = open(str, O_RDONLY);
       rfFIFO = fdopen(rFIFO,"r");
+      setbuf(rfFIFO,NULL);
       for (int i=0;i<4;++i) {
          sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
          wFIFO[i] = open(str, O_WRONLY);
@@ -75,13 +77,13 @@ int main(int argc, char** argv)
       }
       // Game start
       int cumNum[3];
+      int validPlayer = 4;
       for (int i=0;i<20;++i) {
          cumNum[0] = cumNum[1] = cumNum[2] = 0;
          char bufLine[10][128];
          char tempChar;
          int tempKey,tempNum;
          fd_set rset;
-         int validPlayer = 4;
          for (int i=0;i<validPlayer;++i) {
             #if DEBUG>=3
             fprintf(stderr,"Reading response from %s...\n",argv[1]);
@@ -89,16 +91,19 @@ int main(int argc, char** argv)
             FD_ZERO(&rset);
             FD_SET(rFIFO,&rset);
             struct timeval tv;
-            tv.tv_sec = 1;
-            // int n,p;
-            // n = select(100,&rset,NULL,NULL,&tv);
-            // p = FD_ISSET(rFIFO,&rset);
-            // fscanf(rfFIFO,"%c%d%d\n",&tempChar,&tempKey,&tempNum);
+            tv.tv_sec = 3;
+            tv.tv_usec = 0;
+            int n;
+            n = select(100,&rset,NULL,NULL,&tv);
+            if (n == 0) {
+               validPlayer = i;
+               break;
+            }
             fgets(bufLine[i],sizeof(bufLine[i]),rfFIFO);
             sscanf(bufLine[i],"%c %d %d\n",&tempChar, &tempKey, &tempNum);
             #if DEBUG>=3
-            // fprintf(stderr,"n = %d, p = %d, tempChar = %c, tempKey = %d, tempNum = %d\n",n,p,tempChar,tempKey,tempNum);
-            fprintf(stderr,"tempChar = %c, tempKey = %d, tempNum = %d\n",tempChar,tempKey,tempNum);
+            fprintf(stderr,"n = %d, tempChar = %c, tempKey = %d, tempNum = %d\n",n,tempChar,tempKey,tempNum);
+            // fprintf(stderr,"tempChar = %c, tempKey = %d, tempNum = %d\n",tempChar,tempKey,tempNum);
             #endif
             int index = tempChar - 'A';
             assert(index>=0 && index < 4);
@@ -121,7 +126,17 @@ int main(int argc, char** argv)
                break;
             }
          }
-         sprintf(str,"");
+         strcpy(str,"");
+         for (int i=0;i<4;++i) {
+            if (player[i].resNum == 0) {
+               if (player[i].pid != 0) {
+                  fprintf(stderr,"No response from player %c.\n",'A'+i);
+                  fprintf(stderr,"Kill %d\n",player[i].pid);
+                  kill(player[i].pid);
+                  player[i].pid = 0;
+               }
+            }
+         }
          for (int i=0;i<4;++i) {
             char buf2[64];
             sprintf(buf2,"%d ",player[i].resNum);
@@ -129,7 +144,8 @@ int main(int argc, char** argv)
          }
          str[strlen(str)-1] = '\n';
          for (int j=0;j<4;++j)
-            write(wFIFO[j],str,strlen(str));
+            if (player[j].resNum != 0)
+               write(wFIFO[j],str,strlen(str));
          for (int i=0;i<3;++i) {
             if (cumNum[i] == 1) {
                for (int j=0;j<4;++j) {
@@ -144,14 +160,10 @@ int main(int argc, char** argv)
          fprintf(stderr,"\n");
          #endif
          for (int j=0;j<4;++j) {
-            if (player[j].resNum == 0) {
-               fprintf(stderr,"No reply received from player %c.",'A'+j);
-               // Should punish this case.
-            }
             player[j].resNum = 0;
          }
       } // End of game
-      for (int i=0;i<4;++i) {
+      for (int i=0;i<validPlayer;++i) {
          pid_t pid = wait(NULL);
          close(wFIFO[i]);
          #if DEBUG>=4
