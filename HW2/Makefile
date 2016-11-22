@@ -1,20 +1,35 @@
-CFLAGS = -std=c99 -g -Wall -DDEBUG=4
 CFLAGS = -std=c99 -O3 -Wall
+CFLAGS = -std=c99 -g -Wall -DDEBUG=4
 CXX = gcc
 
+main:
+	@make util.o
+	@make big_judge
+	@make judge
+	@make player
 %.out: %.c
 	@echo "Compling $< ..."
 	@$(CXX) $(CFLAGS) $< util.o -o $@
+
+big_judge: big_judge.c util.o
+	@echo "Compiling big_judge..."
+	@$(CXX) $(CFLAGS) big_judge.c util.o -o big_judge
+
+judge: judge.c util.o
+	@echo "Compiling judge..."
+	@$(CXX) $(CFLAGS) judge.c util.o -o judge
+
+player: player.c util.o
+	@echo "Compiling player..."
+	@$(CXX) $(CFLAGS) player.c util.o -o player
 
 %.o: %.c
 	@echo "Compiling $< ..."
 	@$(CXX) $(CFLAGS) $< -c -o $@
 
-all:
-	@make util.o
-	@make big_judge.out
-	@make judge.out
-	@make player.out
 
 clean:
-	rm -f *.o *.out *.FIFO
+	rm -f *.o  *.FIFO
+	rm -f big_judge
+	rm -f judge
+	rm -f player

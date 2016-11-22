@@ -30,22 +30,25 @@ int main(int argc, char** argv)
    FILE *infile,*outfile;
    infile = fdopen(fin,"r");
    outfile = fdopen(fout,"w");
+   int num;
    for (int i=0;i<20;++i) {
       // Format: index key num
       #if DEBUG>=4
       if (strcmp(argv[2],"A") == 0)
-         fprintf(outfile,"%s %s %d\n",argv[2],argv[3],1);
+         num = 1;
       else if (strcmp(argv[2],"B") == 0)
-         fprintf(outfile,"%s %s %d\n",argv[2],argv[3],3);
+         num = 3;
       else if (strcmp(argv[2],"C") == 0)
-         fprintf(outfile,"%s %s %d\n",argv[2],argv[3],5);
-      else if (strcmp(argv[2],"D") == 0)
+         num = 5;
+      else if (strcmp(argv[2],"D") == 0) 
          sleep(5);
       #else
-      fprintf(outfile,"%s %s %d\n",argv[2],argv[3],2*rnGen(3)+1);
+      num = 2*rnGen(3)+1;
       #endif
+      fprintf(outfile,"%s %s %d\n",argv[2],argv[3],num);
       fflush(outfile);
       #if DEBUG>=3
+      sprintf(buf,"%s %s %d\n",argv[2],argv[3],num);
       fprintf(stderr,"%s_%s > %s",argv[1],argv[2],buf);
       #endif
       read(fin,buf,sizeof(buf));

@@ -63,7 +63,7 @@ int main(int argc, char** argv)
          } else if (pid == 0) {
             // Child process
             sprintf(str,"%c",'A'+i);
-            execl("./player.out","player.out",argv[1],str,player[i].ckey,(char*)0);
+            execl("./player","player",argv[1],str,player[i].ckey,(char*)0);
             exit(0);
          }
       }

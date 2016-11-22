@@ -56,7 +56,7 @@ int main(int argc, char** argv)
             fprintf(stderr,"dup2 STDIN error\n");
          char str[4];
          sprintf(str,"%d",i);
-         if (execl("./judge.out","judge.out",str,(char*)0) < 0)
+         if (execl("./judge","judge",str,(char*)0) < 0)
             fprintf(stderr,"exec error\n");
          exit(0);
       } else {
