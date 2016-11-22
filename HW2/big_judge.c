@@ -151,4 +151,14 @@ int main(int argc, char** argv)
    for (int i=1;i<=numPlayer;++i) {
       printf("%d %d\n",record[i].id,record[i].score);
    }
+   free(judgePID);
+   for (int i=0;i<(numJudge+1)*2;++i)
+      free(judgePipe[i]);
+   free(judgePipe);
+   free(pList);
+   free(jList);
+   free(score);
+   for (int i=0;i<num_of_comb;++i)
+      free(comb[i]);
+   free(comb);
 }

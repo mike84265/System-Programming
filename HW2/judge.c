@@ -22,7 +22,7 @@ int main(int argc, char** argv)
    char buf[1024];
    char str[32];
    int rFIFO, wFIFO[4];
-   FILE *rfFIFO, *wfFIFO[4];
+   FILE *rfFIFO;
    Player player[4];
 
    pid_t pid;
@@ -76,7 +76,6 @@ int main(int argc, char** argv)
       for (int i=0;i<4;++i) {
          sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);
          wFIFO[i] = open(str, O_WRONLY);
-         wfFIFO[i] = fdopen(wFIFO[i],"w");
       }
       // Game start
       int cumNum[3];
@@ -160,7 +159,7 @@ int main(int argc, char** argv)
          }
          #if DEBUG>=2
          for (int i=0;i<4;++i)
-            fprintf(stderr,"%c->%d/%d ",'A'+i, player[i].resNum,player[i].score);
+            fprintf(stderr,"%s_%c->%d/%d ",argv[1],'A'+i, player[i].resNum,player[i].score);
          fprintf(stderr,"\n");
          #endif
          for (int j=0;j<4;++j) {
@@ -179,7 +178,6 @@ int main(int argc, char** argv)
       for (int i=0;i<4;++i) {
          cmpScore[i] = player[i].score;
          close(wFIFO[i]);
-         fclose(wfFIFO[i]);
       }
       qsort(cmpScore,4,sizeof(int),compareInt);
       for (int i=0;i<4;++i) {
@@ -190,11 +188,16 @@ int main(int argc, char** argv)
             }
          }
          // j = [0..3], rank = [1..4]
-         printf("%d %d\n",player[i].id,player[i].rank+1);
-         #if DEBUG>=1
-         fprintf(stderr,"judge %s > big_judge : %d %d\n",argv[1], player[i].id,player[i].rank+1);
-         #endif
       }
+      sprintf(buf,"%d %d\n%d %d\n%d %d\n%d %d\n",
+         player[0].id, player[0].rank+1,
+         player[1].id, player[1].rank+1,
+         player[2].id, player[2].rank+1,
+         player[3].id, player[3].rank+1);
+      #if DEBUG>=2
+      fprintf(stderr,"judge %s > big_judge : %s\n",argv[1],buf);
+      #endif
+      printf("%s",buf);
       fflush(stdout);
       sprintf(str,"judge%s.FIFO",argv[1]);
       close(rFIFO);
