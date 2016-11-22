@@ -1,3 +1,4 @@
+/*   b03901078  蔡承佑   */
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -70,6 +71,7 @@ int main(int argc, char** argv)
       sprintf(str,"judge%s.FIFO",argv[1]);
       rFIFO = open(str, O_RDONLY);
       rfFIFO = fdopen(rFIFO,"r");
+      // set rfFIFO to unbuffered
       setbuf(rfFIFO,NULL);
       for (int i=0;i<4;++i) {
          sprintf(str,"judge%s_%c.FIFO",argv[1],'A'+i);

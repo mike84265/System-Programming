@@ -1,5 +1,6 @@
-CFLAGS = -std=c99 -O3 -Wall
+# B03901078 蔡承佑
 CFLAGS = -std=c99 -g -Wall -DDEBUG=4
+CFLAGS = -std=c99 -O3 -Wall
 CXX = gcc
 
 main:
@@ -29,7 +30,7 @@ player: player.c util.o
 
 
 clean:
-	rm -f *.o  *.FIFO
+	rm -f *.o *.FIFO
 	rm -f big_judge
 	rm -f judge
 	rm -f player
