@@ -86,15 +86,15 @@ int main(int argc, char** argv)
          char tempChar;
          int tempKey,tempNum;
          fd_set rset;
+         struct timeval tv;
+         tv.tv_sec = 3;
+         tv.tv_usec = 0;
          for (int i=0;i<validPlayer;++i) {
             #if DEBUG>=3
             fprintf(stderr,"Reading response from %s...\n",argv[1]);
             #endif
             FD_ZERO(&rset);
             FD_SET(rFIFO,&rset);
-            struct timeval tv;
-            tv.tv_sec = 3;
-            tv.tv_usec = 0;
             int n;
             n = select(100,&rset,NULL,NULL,&tv);
             if (n == 0) {

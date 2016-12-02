@@ -36,13 +36,14 @@ int main(int argc, char** argv)
       // Format: index key num
       #if DEBUG>=4
       if (strcmp(argv[2],"A") == 0)
-         num = 1;
+         sleep(2);
       else if (strcmp(argv[2],"B") == 0)
-         num = 3;
+         sleep(4);
       else if (strcmp(argv[2],"C") == 0)
-         num = 5;
+         sleep(6);
       else if (strcmp(argv[2],"D") == 0) 
          sleep(5);
+      num = 2*rnGen(3)+1;
       #else
       num = 2*rnGen(3)+1;
       #endif
