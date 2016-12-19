@@ -8,6 +8,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <assert.h>
+#include "util.h"
 
 #define TIMEOUT_SEC 5        // timeout in seconds for wait for a connection 
 #define MAXBUFSIZE  1024     // timeout in seconds for wait for a connection 
@@ -35,6 +37,9 @@ typedef struct {
    size_t buf_len;         // bytes used by buf
    size_t buf_size;        // bytes allocated for buf
    size_t buf_idx;         // offset for reading and writing
+   int fd_p2c[2];
+   int fd_c2p[2];
+   int header_written;
 } http_request;
 
 static char* logfilenameP;    // log file name
@@ -70,7 +75,11 @@ static void set_ndelay( int fd );
 
 void write_header(http_request* reqP, int status);
 
-char* validChar = "ABCDEFGHIJKLIMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789";
+char* validChar = "ABCDEFGHIJKLIMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789.";
+
+static void sig_child(int signo);
+int numDied = 0;
+int exit_status;
 
 int main( int argc, char** argv ) {
    http_server server;              // http server
@@ -85,6 +94,8 @@ int main( int argc, char** argv ) {
    int err;            // used by read_header_and_file()
    int i, ret, nwritten;
    
+   fd_set rset;
+   List pList;
 
    // Parse args. 
    if ( argc != 3 ) {
@@ -112,10 +123,75 @@ int main( int argc, char** argv ) {
    fprintf( stderr, "\nstarting on %.80s, port %d, fd %d, maxconn %d, logfile %s...\n", 
       server.hostname, server.port, server.listen_fd, maxfd, logfilenameP );
 
+
    // Main loop. 
    while (1) {
       // Wait for a connection.
       clilen = sizeof(cliaddr);
+      FD_ZERO(&rset);
+      FD_SET(server.listen_fd, &rset);
+      #ifdef DEBUG
+      fprintf(stderr,"svrfd = %d\n",server.listen_fd);
+      #endif
+      for (i=5;i<maxfd;++i) {
+         if (requestP[i].status != 0) {
+            FD_SET(requestP[i].fd_c2p[0], &rset);
+            #ifdef DEBUG
+            fprintf(stderr,"i=%d, fd=%d added.\n",i, requestP[i].fd_c2p[0]);
+            #endif
+         }
+      }
+      fprintf(stderr,"select.\n");
+      int n = select(1024,&rset,NULL,NULL,NULL) > 0;
+      fprintf(stderr,"select=> n=%d\n",n);
+      if (n <= 0) {
+         fprintf(stderr,"n = %d, exit.\n",n);
+         exit(1);
+      }
+      if (FD_ISSET(server.listen_fd, &rset) == 0) {
+         for (i=0;i<maxfd;++i) {
+            if (FD_ISSET(requestP[i].fd_c2p[0],&rset)) {
+               http_request* reqP = &requestP[i];
+               int buflen;
+               char buf[1024];
+               buflen = read(reqP->fd_c2p[0],buf,sizeof(buf));
+               if (buflen == 0) {
+                  // EOF or empty file
+                  wait(&exit_status);
+                  ++numDied;
+                  fprintf(stderr,"status = %d\n",exit_status);
+                  if (exit_status != 0) {
+                     strcpy(reqP->errMsg,"File not found!\n");
+                     write_header(reqP, 404);
+                     write(reqP->conn_fd, reqP->buf, reqP->buf_len);
+                     write(logfd, reqP->buf, reqP->buf_len );
+                  }
+                  else {
+                     if (reqP->header_written == 0) {
+                        write_header(reqP, 200);
+                        write(reqP->conn_fd, reqP->buf, reqP->buf_len);
+                        write(logfd, reqP->buf, reqP->buf_len );
+                     }
+                  }
+                  // Clear.
+                  close( requestP[conn_fd].conn_fd );
+                  free_request( &requestP[conn_fd] );
+                  break;
+               } else {
+                  if (reqP->header_written == 0) {
+                     write_header(reqP,200);
+                     write(reqP->conn_fd, reqP->buf, reqP->buf_len);
+                     write(logfd, reqP->buf, reqP->buf_len );
+                     reqP->header_written = 1;
+                  }
+                  write(reqP->conn_fd, buf, buflen);
+                  write(logfd, buf, buflen);
+               }
+            }
+         }
+         continue;
+      }
+
       conn_fd = accept( server.listen_fd, (struct sockaddr *) &cliaddr, (socklen_t *) &clilen );
       if ( conn_fd < 0 ) {
          if ( errno == EINTR || errno == EAGAIN ) continue; // try again 
@@ -132,7 +208,8 @@ int main( int argc, char** argv ) {
 
       fprintf( stderr, "getting a new request... fd %d from %s\n", conn_fd, requestP[conn_fd].host );
 
-      while (1) {
+      nwritten = 0;
+      while(1) {
          ret = read_header_and_file( &requestP[conn_fd], &err );
          if (ret > 0) continue;
          else if ( ret < 0 ) {
@@ -154,11 +231,12 @@ int main( int argc, char** argv ) {
             #endif
 
             #define BADREQ(x)   {\
+               char* str = (x); \
+               strcpy(requestP[conn_fd].errMsg,(x)); \
                write_header(&requestP[conn_fd],400); \
                write(requestP[conn_fd].conn_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len ); \
                write(logfd, requestP[conn_fd].buf, requestP[conn_fd].buf_len ); \
                nwritten = requestP[conn_fd].buf_len; \
-               char* str = (x); \
                nwritten += write(requestP[conn_fd].conn_fd, str, strlen(str)); \
                write(logfd, str, strlen(str)); \
                break; \
@@ -175,36 +253,36 @@ int main( int argc, char** argv ) {
                   BADREQ("Query file contains invalid character!!\n")
             }
 
-            // write_header(&requestP[conn_fd],200);
-            // nwritten = requestP[conn_fd].buf_len;
-            // write( requestP[conn_fd].conn_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len );
-            // write( logfd, requestP[conn_fd].buf, requestP[conn_fd].buf_len );
             pid_t pid;
-            int fd_p2c[2], fd_c2p[2];
-            pipe(fd_p2c);
-            pipe(fd_c2p);
+            http_request* reqP = &requestP[conn_fd];
+            pipe(reqP->fd_p2c);
+            pipe(reqP->fd_c2p);
             if ((pid = fork()) == 0) {
-               close(fd_p2c[1]);
-               close(fd_c2p[0]);
-               if (dup2(fd_p2c[0],0) != 0)
+               close(reqP->fd_p2c[1]);
+               close(reqP->fd_c2p[0]);
+               if (dup2(reqP->fd_p2c[0],0) != 0)
                   fprintf(stderr,"dup2 STDIN error\n");
-               if (dup2(fd_c2p[1],1) != 1)
+               if (dup2(reqP->fd_c2p[1],1) != 1)
                   fprintf(stderr,"dup2 STDOUT error\n");
-               if (execlp(requestP[conn_fd].file,requestP[conn_fd].file,(char*)0) == -1)
+               if (execlp(requestP[conn_fd].file,requestP[conn_fd].file,(char*)0) == -1) {
                   fprintf(stderr,"exec Error\n");
-               break;
+                  exit(3);
+               }
             } else if (pid > 0){
-               close(fd_p2c[0]);
-               close(fd_c2p[1]);
-               write(fd_p2c[1],requestP[conn_fd].query,sizeof(requestP[conn_fd].query));
-               int buflen, status;
+               close(reqP->fd_p2c[0]);
+               close(reqP->fd_c2p[1]);
+               write(reqP->fd_p2c[1],reqP->query,sizeof(reqP->query));
+               // Following that contains reading should be aware of delay and considering multiplexing.
+
+               /*
+               int buflen;
                char buf[1024];
-               buflen = read(fd_c2p[0],buf,sizeof(buf));
+               buflen = read(reqP->fd_c2p[0],buf,sizeof(buf));
                if (buflen == 0) {
-                  fprintf(stderr,"read 0 bit.\n");
-                  wait(&status);
-                  fprintf(stderr,"status = %d\n",status);
-                  if (status != 0) {
+                  wait(&exit_status);
+                  fprintf(stderr,"status = %d\n",exit_status);
+                  if (exit_status != 0) {
+                     strcpy(requestP[conn_fd].errMsg,"File not found!\n");
                      write_header(&requestP[conn_fd], 404);
                      nwritten += write(requestP[conn_fd].conn_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len);
                      write(logfd, requestP[conn_fd].buf, requestP[conn_fd].buf_len );
@@ -225,12 +303,14 @@ int main( int argc, char** argv ) {
                   write( logfd, buf, buflen); 
                   nwritten += buflen; 
                } while( (buflen = read(fd_c2p[0],buf,sizeof(buf))) > 0);
+               wait(NULL);
+               */
             }
 
             // write once only and ignore error
-            fprintf( stderr, "complete writing %d bytes on fd %d\n", nwritten, requestP[conn_fd].conn_fd );
-            close( requestP[conn_fd].conn_fd );
-            free_request( &requestP[conn_fd] );
+            // fprintf( stderr, "complete writing %d bytes on fd %d\n", nwritten, requestP[conn_fd].conn_fd );
+            // close( requestP[conn_fd].conn_fd );
+            // free_request( &requestP[conn_fd] );
             break;
          }
       }
@@ -266,6 +346,11 @@ static void init_request( http_request* reqP ) {
    reqP->buf_size = 0;
    reqP->buf_len = 0;
    reqP->buf_idx = 0;
+   reqP->fd_p2c[0] = 0;
+   reqP->fd_p2c[1] = 0;
+   reqP->fd_c2p[0] = 0;
+   reqP->fd_c2p[1] = 0;
+   reqP->header_written = 0;
 }
 
 static void free_request( http_request* reqP ) {
@@ -345,49 +430,6 @@ static int read_header_and_file( http_request* reqP, int *errP ) {
      
    strcpy( reqP->file, file );
    strcpy( reqP->query, query );
-
-   
-
-   /*
-   if ( query[0] == (char) 0 ) {
-      // for file request, read it in buf
-      r = stat( reqP->file, &sb );
-      if ( r < 0 ) ERR_RET( 6 )
-
-      fd = open( reqP->file, O_RDONLY );
-      if ( fd < 0 ) ERR_RET( 7 )
-
-      reqP->buf_len = 0;
-
-      r = stat(reqp->file, &sb);
-      if (r<0)
-         buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 400 Bad Request\015\012Server: Mike Tsai\015\012" );
-
-      buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 200 OK\015\012Server: Mike Tsai\015\012" );
-      strcpy(reqP->buf,"\0");
-      reqP->buf_len = 0;
-      add_to_buf( reqP, buf, buflen );
-      now = time( (time_t*) 0 );
-      (void) strftime( timebuf, sizeof(timebuf), "%a, %d %b %Y %H:%M:%S GMT", gmtime( &now ) );
-      buflen = snprintf( buf, sizeof(buf), "Date: %s\015\012", timebuf );
-      add_to_buf( reqP, buf, buflen );
-      buflen = snprintf(
-         buf, sizeof(buf), "Content-Length: %lld\015\012", (int64_t) sb.st_size );
-      add_to_buf( reqP, buf, buflen );
-      buflen = snprintf( buf, sizeof(buf), "Connection: close\015\012\015\012" );
-      add_to_buf( reqP, buf, buflen );
-
-      ptr = mmap( 0, (size_t) sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0 );
-      if ( ptr == (void*) -1 ) ERR_RET( 8 )
-         add_to_buf( reqP, ptr, sb.st_size );
-      (void) munmap( ptr, sb.st_size );
-      close( fd );
-      // printf( "%s\n", reqP->buf );
-      // fflush( stdout );
-      reqP->buf_idx = 0; // writing from offset 0
-      return 0;
-   }
-   */
    return 0;
 }
 
@@ -501,11 +543,11 @@ void write_header(http_request* reqP, int status){
       break;
     case 400:
       buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 400 Bad Request\015\012Server: Mike Tsai\015\012" );
-      contLen = 0;
+      contLen = strlen(reqP->errMsg);
       break;
     case 404:
       buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 404 Not Found\015\012Server: Mike Tsai\015\012" );
-      contLen = 0;
+      contLen = strlen(reqP->errMsg);
       break;
    }
    strcpy(reqP->buf,"\0");
@@ -520,7 +562,15 @@ void write_header(http_request* reqP, int status){
    add_to_buf( reqP, buf, buflen );
    buflen = snprintf( buf, sizeof(buf), "Connection: close\015\012\015\012" );
    add_to_buf( reqP, buf, buflen );
+   if (status == 400 || status == 404)
+      add_to_buf(reqP, reqP->errMsg, contLen);
 
+}
+
+static void sig_child(int signo) {
+   ++numDied;
+   wait(&exit_status);
+   exit_status = WEXITSTATUS(exit_status);
 }
 
 static int hexit( char c ) {
