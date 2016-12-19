@@ -10,6 +10,10 @@
 
 typedef struct {
     char c_time_string[100];
+    int numRunning;
+    int numDied;
+    pid_t runningPID[128];
+    pid_t diedPID[128];
 } TimeInfo;
 
 int main(int argc, char** argv) 
@@ -27,6 +31,13 @@ int main(int argc, char** argv)
     while(1) {
         sleep(2);
         printf("%s\n", p_map->c_time_string);
+        printf("Running process: ");
+        for (int i=0;i<p_map->numRunning;++i)
+            printf("%d, ", p_map->runningPID[i]);
+        printf("\nDied process: ");
+        for (int i=0;i<p_map->numDied;++i)
+            printf("%d, ", p_map->diedPID[i]);
+        printf("\n---\n");
     }
 
     return 0;

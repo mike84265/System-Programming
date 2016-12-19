@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <fcntl.h>
 
 #define TIMEOUT_SEC 5        // timeout in seconds for wait for a connection 
 #define MAXBUFSIZE  1024     // timeout in seconds for wait for a connection 
@@ -29,6 +30,7 @@ typedef struct {
    char file[MAXBUFSIZE];  // requested file
    char query[MAXBUFSIZE]; // requested query
    char host[MAXBUFSIZE];  // client host
+   char errMsg[128];       // Error message to show to the client.
    char* buf;              // data sent by/to client
    size_t buf_len;         // bytes used by buf
    size_t buf_size;        // bytes allocated for buf
@@ -36,6 +38,7 @@ typedef struct {
 } http_request;
 
 static char* logfilenameP;    // log file name
+static int logfd;
 
 
 // Forwards
@@ -65,6 +68,10 @@ static int read_header_and_file( http_request* reqP, int *errP );
 static void set_ndelay( int fd );
 // Set NDELAY mode on a socket.
 
+void write_header(http_request* reqP, int status);
+
+char* validChar = "ABCDEFGHIJKLIMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789";
+
 int main( int argc, char** argv ) {
    http_server server;              // http server
    http_request* requestP = NULL;   // pointer to http requests from client
@@ -86,6 +93,7 @@ int main( int argc, char** argv ) {
    }
 
    logfilenameP = argv[2];
+   logfd = open(argv[2],O_CREAT | O_WRONLY | O_TRUNC, 0644);
 
    // Initialize http server
    init_http_server( &server, (unsigned short) atoi( argv[1] ) );
@@ -141,8 +149,85 @@ int main( int argc, char** argv ) {
                requestP[conn_fd].buf, (int) requestP[conn_fd].buf_idx,
                (int) requestP[conn_fd].buf_len, requestP[conn_fd].conn_fd );
 
+            #ifdef DEBUG
+            fprintf(stderr, "file = %s\nquery = %s\n", requestP[conn_fd].file, requestP[conn_fd].query);
+            #endif
+
+            #define BADREQ(x)   {\
+               write_header(&requestP[conn_fd],400); \
+               write(requestP[conn_fd].conn_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len ); \
+               write(logfd, requestP[conn_fd].buf, requestP[conn_fd].buf_len ); \
+               nwritten = requestP[conn_fd].buf_len; \
+               char* str = (x); \
+               nwritten += write(requestP[conn_fd].conn_fd, str, strlen(str)); \
+               write(logfd, str, strlen(str)); \
+               break; \
+            }
+
+            if (strcmp(requestP[conn_fd].file,"favicon.ico") != 0) {
+               if (strspn(requestP[conn_fd].file, validChar) != strlen(requestP[conn_fd].file)) 
+                  BADREQ("Invalid file name!!\n")
+               char* c = strstr(requestP[conn_fd].query,"filename=");
+               if (c == NULL)
+                  BADREQ("Invalid query parameter!!\n")
+               else 
+                  if (strspn(c+9,validChar) != strlen(c+9))
+                  BADREQ("Query file contains invalid character!!\n")
+            }
+
+            // write_header(&requestP[conn_fd],200);
+            // nwritten = requestP[conn_fd].buf_len;
+            // write( requestP[conn_fd].conn_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len );
+            // write( logfd, requestP[conn_fd].buf, requestP[conn_fd].buf_len );
+            pid_t pid;
+            int fd_p2c[2], fd_c2p[2];
+            pipe(fd_p2c);
+            pipe(fd_c2p);
+            if ((pid = fork()) == 0) {
+               close(fd_p2c[1]);
+               close(fd_c2p[0]);
+               if (dup2(fd_p2c[0],0) != 0)
+                  fprintf(stderr,"dup2 STDIN error\n");
+               if (dup2(fd_c2p[1],1) != 1)
+                  fprintf(stderr,"dup2 STDOUT error\n");
+               if (execlp(requestP[conn_fd].file,requestP[conn_fd].file,(char*)0) == -1)
+                  fprintf(stderr,"exec Error\n");
+               break;
+            } else if (pid > 0){
+               close(fd_p2c[0]);
+               close(fd_c2p[1]);
+               write(fd_p2c[1],requestP[conn_fd].query,sizeof(requestP[conn_fd].query));
+               int buflen, status;
+               char buf[1024];
+               buflen = read(fd_c2p[0],buf,sizeof(buf));
+               if (buflen == 0) {
+                  fprintf(stderr,"read 0 bit.\n");
+                  wait(&status);
+                  fprintf(stderr,"status = %d\n",status);
+                  if (status != 0) {
+                     write_header(&requestP[conn_fd], 404);
+                     nwritten += write(requestP[conn_fd].conn_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len);
+                     write(logfd, requestP[conn_fd].buf, requestP[conn_fd].buf_len );
+                     break;
+                  }
+                  else {
+                     write_header(&requestP[conn_fd], 200);
+                     nwritten += write(requestP[conn_fd].conn_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len);
+                     write(logfd, requestP[conn_fd].buf, requestP[conn_fd].buf_len );
+                     break;
+                  }
+               }
+               write_header(&requestP[conn_fd],200);
+               nwritten += write(requestP[conn_fd].conn_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len);
+               write(logfd, requestP[conn_fd].buf, requestP[conn_fd].buf_len );
+               do { 
+                  write( requestP[conn_fd].conn_fd, buf, buflen); 
+                  write( logfd, buf, buflen); 
+                  nwritten += buflen; 
+               } while( (buflen = read(fd_c2p[0],buf,sizeof(buf))) > 0);
+            }
+
             // write once only and ignore error
-            nwritten = write( requestP[conn_fd].conn_fd, requestP[conn_fd].buf, requestP[conn_fd].buf_len );
             fprintf( stderr, "complete writing %d bytes on fd %d\n", nwritten, requestP[conn_fd].conn_fd );
             close( requestP[conn_fd].conn_fd );
             free_request( &requestP[conn_fd] );
@@ -213,23 +298,23 @@ static int read_header_and_file( http_request* reqP, int *errP ) {
    char* protocol = (char *) 0;
    char* method_str = (char *) 0;
    int r, fd;
-   struct stat sb;
-   char timebuf[100];
-   int buflen;
+   // struct stat sb;
+   // char timebuf[100];
+   // int buflen;
    char buf[10000];
-   time_t now;
-   void *ptr;
+   // time_t now;
+   // void *ptr;
 
    // Read in request from client
    while (1) {
-   r = read( reqP->conn_fd, buf, sizeof(buf) );
-   if ( r < 0 && ( errno == EINTR || errno == EAGAIN ) ) return 1;
-   if ( r <= 0 ) ERR_RET( 1 )
-   add_to_buf( reqP, buf, r );
-   if ( strstr( reqP->buf, "\015\012\015\012" ) != (char*) 0 ||
-       strstr( reqP->buf, "\012\012" ) != (char*) 0 ) break;
+      r = read( reqP->conn_fd, buf, sizeof(buf) );
+      if ( r < 0 && ( errno == EINTR || errno == EAGAIN ) ) return 1;
+      if ( r <= 0 ) ERR_RET( 1 )
+      add_to_buf( reqP, buf, r );
+      if ( strstr( reqP->buf, "\015\012\015\012" ) != (char*) 0 ||
+          strstr( reqP->buf, "\012\012" ) != (char*) 0 ) break;
    }
-   // fprintf( stderr, "header: %s\n", reqP->buf );
+   fprintf( stderr, "header: %s\n", reqP->buf );
 
    // Parse the first line of the request.
    method_str = get_request_line( reqP );
@@ -261,6 +346,8 @@ static int read_header_and_file( http_request* reqP, int *errP ) {
    strcpy( reqP->file, file );
    strcpy( reqP->query, query );
 
+   
+
    /*
    if ( query[0] == (char) 0 ) {
       // for file request, read it in buf
@@ -270,32 +357,37 @@ static int read_header_and_file( http_request* reqP, int *errP ) {
       fd = open( reqP->file, O_RDONLY );
       if ( fd < 0 ) ERR_RET( 7 )
 
-   reqP->buf_len = 0;
+      reqP->buf_len = 0;
 
-      buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 200 OK\015\012Server: SP TOY\015\012" );
+      r = stat(reqp->file, &sb);
+      if (r<0)
+         buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 400 Bad Request\015\012Server: Mike Tsai\015\012" );
+
+      buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 200 OK\015\012Server: Mike Tsai\015\012" );
+      strcpy(reqP->buf,"\0");
+      reqP->buf_len = 0;
       add_to_buf( reqP, buf, buflen );
-       now = time( (time_t*) 0 );
+      now = time( (time_t*) 0 );
       (void) strftime( timebuf, sizeof(timebuf), "%a, %d %b %Y %H:%M:%S GMT", gmtime( &now ) );
       buflen = snprintf( buf, sizeof(buf), "Date: %s\015\012", timebuf );
       add_to_buf( reqP, buf, buflen );
-   buflen = snprintf(
-      buf, sizeof(buf), "Content-Length: %ld\015\012", (int64_t) sb.st_size );
+      buflen = snprintf(
+         buf, sizeof(buf), "Content-Length: %lld\015\012", (int64_t) sb.st_size );
       add_to_buf( reqP, buf, buflen );
       buflen = snprintf( buf, sizeof(buf), "Connection: close\015\012\015\012" );
       add_to_buf( reqP, buf, buflen );
 
-   ptr = mmap( 0, (size_t) sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0 );
-   if ( ptr == (void*) -1 ) ERR_RET( 8 )
-      add_to_buf( reqP, ptr, sb.st_size );
-   (void) munmap( ptr, sb.st_size );
-   close( fd );
-   // printf( "%s\n", reqP->buf );
-   // fflush( stdout );
-   reqP->buf_idx = 0; // writing from offset 0
-   return 0;
+      ptr = mmap( 0, (size_t) sb.st_size, PROT_READ, MAP_PRIVATE, fd, 0 );
+      if ( ptr == (void*) -1 ) ERR_RET( 8 )
+         add_to_buf( reqP, ptr, sb.st_size );
+      (void) munmap( ptr, sb.st_size );
+      close( fd );
+      // printf( "%s\n", reqP->buf );
+      // fflush( stdout );
+      reqP->buf_idx = 0; // writing from offset 0
+      return 0;
    }
    */
-
    return 0;
 }
 
@@ -389,6 +481,47 @@ static void strdecode( char* to, char* from ) {
    *to = '\0';
 }
 
+void write_header(http_request* reqP, int status){
+   int buflen;
+   time_t now;
+   char timebuf[100];
+   char buf[1024];
+   size_t contLen;
+   switch(status) {
+    case 200:
+      buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 200 OK\015\012Server: Mike Tsai\015\012" );
+      if (strcmp(reqP->file, "favicon.ico") == 0)
+         contLen = 77;
+      else {
+         struct stat sb;
+         char* c = strstr(reqP->query,"filename=");
+         stat(c+9, &sb);
+         contLen = sb.st_size;
+      }
+      break;
+    case 400:
+      buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 400 Bad Request\015\012Server: Mike Tsai\015\012" );
+      contLen = 0;
+      break;
+    case 404:
+      buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 404 Not Found\015\012Server: Mike Tsai\015\012" );
+      contLen = 0;
+      break;
+   }
+   strcpy(reqP->buf,"\0");
+   reqP->buf_len = 0;
+   add_to_buf( reqP, buf, buflen );
+   now = time( (time_t*) 0 );
+   (void) strftime( timebuf, sizeof(timebuf), "%a, %d %b %Y %H:%M:%S GMT", gmtime( &now ) );
+   buflen = snprintf( buf, sizeof(buf), "Date: %s\015\012", timebuf );
+   add_to_buf( reqP, buf, buflen );
+   buflen = snprintf(
+      buf, sizeof(buf), "Content-Length: %ld\015\012", contLen );
+   add_to_buf( reqP, buf, buflen );
+   buflen = snprintf( buf, sizeof(buf), "Connection: close\015\012\015\012" );
+   add_to_buf( reqP, buf, buflen );
+
+}
 
 static int hexit( char c ) {
    if ( c >= '0' && c <= '9' )
