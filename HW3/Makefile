@@ -3,11 +3,12 @@ CFLAGS = -std=c99 -O3 -Wall
 CFLAGS = -std=c99 -g -Wall -DDEBUG
 CXX = gcc
 
-main: server.c file_reader.c util.c
+main: server.c file_reader.c util.c main.c
 	@make normal
 	@make slow
 	@make util.o
-	@gcc $(CFLAGS) util.o server.c -o server.out
+	@make server.o
+	@gcc $(CFLAGS) util.o server.o main.c -o server.out
 
 slow:
 	@echo "Compiling slow_reader ..."

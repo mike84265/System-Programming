@@ -1,10 +1,12 @@
 #include "util.h"
 #include <stdlib.h>
+#include <stdio.h>
 void init(List* list)
 {
    list->size = 0;
    list->head = (struct Node*)malloc(sizeof(struct Node));
    list->head->prev = list->head->next = list->head;
+   list->head->val = 0;
    // head is a dummy node
 }
 
@@ -34,3 +36,12 @@ int erase(List* list, int val)
    free(np);
    return 0;
 }
+
+int empty(List* list)
+{
+   if (list->head->next == list->head)
+      return 1;
+   else
+      return 0;
+}
+

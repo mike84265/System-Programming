@@ -18,4 +18,6 @@ typedef struct {
 void init(List* list);
 void push(List* list, int val);
 int erase(List* list, int val);
+int empty(List* list);
+
 #endif
