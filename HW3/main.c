@@ -1,3 +1,4 @@
+/*  B03901078  蔡承佑  */
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -177,9 +178,7 @@ int main( int argc, char** argv ) {
                requestP[conn_fd].buf, (int) requestP[conn_fd].buf_idx,
                (int) requestP[conn_fd].buf_len, requestP[conn_fd].conn_fd );
 
-            #ifdef DEBUG
             fprintf(stderr, "file = %s\nquery = %s\n", requestP[conn_fd].file, requestP[conn_fd].query);
-            #endif
 
             http_request* reqP = &requestP[conn_fd];
 
@@ -202,6 +201,7 @@ int main( int argc, char** argv ) {
                } else {
                   pause();
                   wait(NULL);
+                  --numDied;  // Do not count this part.
                   char buf[1024];
                   sprintf(buf,"%d processes died previously.\n", numDied);
                   strcat(buf,"PIDs of Running Processes: ");
@@ -211,10 +211,8 @@ int main( int argc, char** argv ) {
                      for (p=p->next; p!=pList.head; p=p->next)
                         sprintf(buf, "%s, %d",buf,p->val);
                   }
-                  #ifdef DEBUG
-                  fprintf(stderr, "size = %d, empty = %d\n",pList.size, empty(&pList));
-                  #endif
-                  sprintf(buf,"%s\nLast EXit CGI: %s\n",buf,info->time_string);
+                  sprintf(buf,"%s\nLast EXit CGI: %s, PID=%d, filename=%s\n",buf,
+                    info->time_string, info->pid, info->filename);
                   strcpy(reqP->cntbuf,buf);
                   write_header(reqP, 200);
                   write(reqP->conn_fd, reqP->buf, reqP->buf_len);
@@ -226,17 +224,23 @@ int main( int argc, char** argv ) {
                   break;
                }
             }
-
-            if (strcmp(reqP->file,"favicon.ico") != 0) {
-               if (strspn(reqP->file, validChar) != strlen(reqP->file)) 
-                  BADREQ("Invalid file name!!\n")
-               char* c = strstr(reqP->query,"filename=");
-               if (c == NULL)
-                  BADREQ("Invalid query parameter!!\n")
-               else 
-                  if (strspn(c+9,validChar) != strlen(c+9))
-                  BADREQ("Query file contains invalid character!!\n")
+            else if (strcmp(reqP->file,"favicon.ico") == 0) {
+               strcpy(reqP->cntbuf,"\0");
+               write_header(reqP,200);
+               write(reqP->conn_fd, reqP->buf, reqP->buf_len);
+               write(logfd, reqP->buf, reqP->buf_len);
+               close(reqP->conn_fd);
+               free_request(reqP);
+               break;
             } 
+            if (strspn(reqP->file, validChar) != strlen(reqP->file)) 
+               BADREQ("Invalid file name!!\n")
+            char* c = strstr(reqP->query,"filename=");
+            if (c == NULL)
+               BADREQ("Invalid query parameter!!\n")
+            else 
+               if (strspn(c+9,validChar) != strlen(c+9))
+               BADREQ("Query file contains invalid character!!\n")
             int pid;
             pipe(reqP->fd_p2c);
             pipe(reqP->fd_c2p);

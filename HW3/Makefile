@@ -1,6 +1,6 @@
 # B03901078 蔡承佑
-CFLAGS = -std=c99 -O3 -Wall
 CFLAGS = -std=c99 -g -Wall -DDEBUG
+CFLAGS = -std=c99 -O3 -Wall
 CXX = gcc
 
 main: server.c file_reader.c util.c main.c
@@ -28,4 +28,6 @@ normal:
 
 
 clean:
-	rm -f *.o *.out
+	@rm -f *.o *.out
+	@rm file_reader
+	@rm slow_reader

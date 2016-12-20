@@ -1,3 +1,4 @@
+/*  B03901078  蔡承佑  */
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -86,7 +87,9 @@ int read_header_and_file( http_request* reqP, int *errP ) {
       if ( strstr( reqP->buf, "\015\012\015\012" ) != (char*) 0 ||
           strstr( reqP->buf, "\012\012" ) != (char*) 0 ) break;
    }
+   #ifdef DEBUG
    fprintf( stderr, "header: %s\n", reqP->buf );
+   #endif
 
    // Parse the first line of the request.
    method_str = get_request_line( reqP );
@@ -219,7 +222,7 @@ void write_header(http_request* reqP, int status){
     case 200:
       buflen = snprintf( buf, sizeof(buf), "HTTP/1.1 200 OK\015\012Server: Mike Tsai\015\012" );
       if (strcmp(reqP->file, "favicon.ico") == 0)
-         contLen = 77;
+         contLen = 0;
       else if (strcmp(reqP->file, "info") == 0)
          contLen = strlen(reqP->cntbuf);
       else {

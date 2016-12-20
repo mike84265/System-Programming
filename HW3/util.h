@@ -1,3 +1,4 @@
+/*  B03901078  蔡承佑  */
 #ifndef UTIL_H
 #define UTIL_H
 struct Node {
@@ -14,6 +15,7 @@ typedef struct {
 typedef struct {
    char time_string[100];
    int pid;
+   char filename[128];
 } TimeInfo;
 
 void init(List* list);

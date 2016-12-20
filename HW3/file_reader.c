@@ -1,3 +1,4 @@
+/*  B03901078  蔡承佑  */
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -9,7 +10,7 @@
 int main()
 {
    char buf[1024];
-   char filename[1024];
+   char filename[128];
    char time_string[100];
    char* c;
    read(0,buf,sizeof(buf));
@@ -42,6 +43,9 @@ int main()
    time_t current_time = time(NULL);
    strcpy(time_string, ctime(&current_time));
    memcpy(info->time_string, &time_string, sizeof(time_string)); 
+   int pid = getpid();
+   memcpy(&info->pid, &pid, sizeof(pid));
+   memcpy(info->filename, &filename, sizeof(filename));
    munmap(info, sizeof(TimeInfo));
    return 0;
 }
