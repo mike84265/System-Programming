@@ -13,6 +13,7 @@ typedef struct {
 
 typedef struct {
    char time_string[100];
+   int pid;
 } TimeInfo;
 
 void init(List* list);

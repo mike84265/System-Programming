@@ -41,8 +41,10 @@ void free_request( http_request* reqP ) {
       free( reqP->buf );
       reqP->buf = NULL;
    }
-   close(reqP->fd_p2c[1]);
-   close(reqP->fd_c2p[0]);
+   if (reqP->fd_p2c[1] != 0)
+      close(reqP->fd_p2c[1]);
+   if (reqP->fd_c2p[0] != 0)
+      close(reqP->fd_c2p[0]);
    init_request( reqP );
 }
 

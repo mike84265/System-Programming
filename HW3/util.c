@@ -33,6 +33,7 @@ int erase(List* list, int val)
    }
    np->next->prev = np->prev;
    np->prev->next = np->next;
+   --list->size;
    free(np);
    return 0;
 }

@@ -14,7 +14,6 @@
 #include "util.h"
 #include "server.h"
 
-static char* logfilenameP;    // log file name
 static int logfd;
 char* validChar = "ABCDEFGHIJKLIMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789.";
 int numDied = 0;
@@ -45,7 +44,6 @@ int main( int argc, char** argv ) {
       exit(1);
    }
 
-   logfilenameP = argv[2];
    logfd = open(argv[2],O_CREAT | O_WRONLY | O_TRUNC, 0644);
    signal(SIGCHLD,sig_child);
    signal(SIGUSR1,sig_usr);
@@ -67,28 +65,32 @@ int main( int argc, char** argv ) {
    requestP[ server.listen_fd ].status = READING;
 
    fprintf( stderr, "\nstarting on %.80s, port %d, fd %d, maxconn %d, logfile %s...\n", 
-      server.hostname, server.port, server.listen_fd, maxfd, logfilenameP );
+      server.hostname, server.port, server.listen_fd, maxfd, argv[2] );
 
 
    // Main loop. 
    while (1) {
-      // Wait for a connection.
-      clilen = sizeof(cliaddr);
       FD_ZERO(&rset);
       FD_SET(server.listen_fd, &rset);
       for (i=6;i<1024;++i) {
          if (requestP[i].status != 0) {
-            #ifdef DEBUG
-            fprintf(stderr, "i = %d, fd = %d is set.\n",i,requestP[i].fd_c2p[0]);
-            #endif
             FD_SET(requestP[i].fd_c2p[0], &rset);
          }
       }
       FD_CLR(0,&rset);
+      #ifdef DEBUG
+      fprintf(stderr,"select;\n");
+      #endif
       int n = select(1024,&rset,NULL,NULL,NULL);
-      fprintf(stderr, "select = %d\n", n);
-      if (n <= 0)
-         exit(1);
+      #ifdef DEBUG
+      fprintf(stderr,"select = %d\n", n);
+      #endif
+      if (n <= 0) {
+         if (errno == EINTR)
+            continue;
+         else
+            exit(1);
+      }
       if (FD_ISSET(server.listen_fd, &rset) == 0) {
          for (i=6;i<1024;++i) {
             if (requestP[i].status != 0 && FD_ISSET(requestP[i].fd_c2p[0],&rset)) {
@@ -132,12 +134,15 @@ int main( int argc, char** argv ) {
                   }
                   write(reqP->conn_fd, buf, buflen);
                   write(logfd, buf, buflen);
+                  break;
                }
             }
          }
          continue;
       }
 
+      // Wait for a connection.
+      clilen = sizeof(cliaddr);
       conn_fd = accept( server.listen_fd, (struct sockaddr *) &cliaddr, (socklen_t *) &clilen );
       if ( conn_fd < 0 ) {
          if ( errno == EINTR || errno == EAGAIN ) continue; // try again 
@@ -200,13 +205,16 @@ int main( int argc, char** argv ) {
                   char buf[1024];
                   sprintf(buf,"%d processes died previously.\n", numDied);
                   strcat(buf,"PIDs of Running Processes: ");
-                  if (empty(&pList) != 0) {
+                  if (empty(&pList) == 0) {
                      struct Node* p = pList.head->next;
                      sprintf(buf,"%s%d",buf,p->val);
                      for (p=p->next; p!=pList.head; p=p->next)
                         sprintf(buf, "%s, %d",buf,p->val);
-                     sprintf(buf,"%s\nLast EXit CGI: %s\n",buf,info->time_string);
                   }
+                  #ifdef DEBUG
+                  fprintf(stderr, "size = %d, empty = %d\n",pList.size, empty(&pList));
+                  #endif
+                  sprintf(buf,"%s\nLast EXit CGI: %s\n",buf,info->time_string);
                   strcpy(reqP->cntbuf,buf);
                   write_header(reqP, 200);
                   write(reqP->conn_fd, reqP->buf, reqP->buf_len);
