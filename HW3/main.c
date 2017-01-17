@@ -211,7 +211,7 @@ int main( int argc, char** argv ) {
                      for (p=p->next; p!=pList.head; p=p->next)
                         sprintf(buf, "%s, %d",buf,p->val);
                   }
-                  sprintf(buf,"%s\nLast EXit CGI: %s, PID=%d, filename=%s\n",buf,
+                  sprintf(buf,"%s\nLast Exit CGI: %sPID=%d, filename=%s\n",buf,
                     info->time_string, info->pid, info->filename);
                   strcpy(reqP->cntbuf,buf);
                   write_header(reqP, 200);

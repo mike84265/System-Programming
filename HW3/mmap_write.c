@@ -46,9 +46,10 @@ int main(int argc, char** argv)
       p_map->diedPID[i] = (time(NULL) * 3) % 65536 + i;
 
    current_time = time(NULL);
-   strcpy(c_time_string, ctime(&current_time));
+   // strcpy(c_time_string, ctime(&current_time));
 
-   memcpy(p_map->c_time_string, &c_time_string , sizeof(c_time_string));
+   // memcpy(p_map->c_time_string, &c_time_string , sizeof(c_time_string));
+   strcpy(p_map->c_time_string, ctime(&current_time));
    
    printf("initialize over\n ");
 
