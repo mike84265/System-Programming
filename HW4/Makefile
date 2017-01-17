@@ -1,5 +1,5 @@
 CXX = gcc
-CFLAGS = -std=c99 -Wall -g -O3
+CFLAGS = -std=c99 -Wall -g 
 
 main:
 	$(CXX) $(CFLAGS) main.c util.c -o main.out

@@ -5,30 +5,81 @@
 #include <time.h>
 #include <unistd.h>
 
-void init(Table* table, int capacity)
+extern int (*cmp[34])(const void*, const void*);
+
+void init(Table* table, int capacity, int colNum)
 {
-   table->_rowNum = table->_colNum = 0;
+   table->_colNum = colNum;
+   table->_rowNum = 0; 
    table->_capacity = capacity;
    table->_data = (double**)malloc(capacity * sizeof(double*));
 }
 
-void push(Table* table, char* data, int length)
+void push(Table* table, char* data)
 {
-   if (table->_colNum == 0)
-      table->_colNum = length;
    if (table->_rowNum == table->_capacity) {
       table->_capacity *= 2;
       table->_data = realloc(table->_data, table->_capacity * sizeof(double));
    }
-   table->_data[table->_rowNum] = (double*)malloc(length * sizeof(double));
+   table->_data[table->_rowNum] = (double*)malloc(table->_colNum * sizeof(double));
    char* pch = data;
    pch = strtok(pch," ");
    table->_data[table->_rowNum][0] = atof(pch);
-   for (int i=1;i<length;++i) {
+   for (int i=1;i<table->_colNum;++i) {
       pch = strtok(NULL," ");
       table->_data[table->_rowNum][i] = atof(pch);
    }
    ++table->_rowNum;
+}
+
+void push_double(Table* table, double* data)
+{
+   table->_data[table->_rowNum] = (double*)malloc(table->_colNum * sizeof(double));
+   memcpy(table->_data[table->_rowNum], data, table->_colNum * sizeof(double));
+   ++table->_rowNum;
+}
+
+void pop(Table* table)
+{
+   free(table->_data[table->_rowNum-1]);
+   --table->_rowNum;
+}
+
+void clear(Table* table)
+{
+   for (int i=0;i<table->_rowNum;++i)
+      free(table->_data[i]);
+   free(table->_data);
+}
+
+void findCut(Table* table, int* dimension, double* threshold)
+{
+   double minImp[34];
+   double thr[34];
+   *dimension = 1;
+   for (int i=1;i<34;++i) {
+      qsort(table->_data, table->_rowNum, sizeof(double*), cmp[i]);
+      minImp[i] = 1;
+      double prev = table->_data[i][0];
+      for (int j=1;j<table->_rowNum;++j) {
+         while (j < table->_rowNum && table->_data[i][j] == prev)
+            ++j;
+         double imp = impurity(table, j);
+         if (imp <= minImp[i]) {
+            minImp[i] = imp;
+            thr[i] = (table->_data[i][j] + prev) /2;
+         }
+         prev = table->_data[i][j];
+         if (imp - minImp[i] > 0.2)
+            break;
+      }
+      if (minImp[i] < minImp[*dimension])
+         *dimension = i;
+      #ifdef DEBUG
+      printf("minImp[%d] = %f, threshold = %f\n", i, minImp[i],thr[i]);
+      #endif
+   }
+   *threshold = thr[*dimension];
 }
 
 int rnGen(const int range) 
@@ -56,7 +107,7 @@ double impurity(const Table* table, int row)
       else
          ++cnt_1;
    }
-   rate = (double)cnt_1/(cnt_0+cnt_1);
+   rate = (double)cnt_0/(cnt_0+cnt_1);
    ret += rate * (1-rate);
    return ret;
 }

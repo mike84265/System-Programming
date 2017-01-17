@@ -8,8 +8,22 @@ typedef struct {
    int            _capacity;
    double**       _data;
 } Table;
-void init(Table* table, int capacity);
-void push(Table* table, char* data, int length);
+
+typedef struct {
+   int            _dimension;
+   double         _threshold;
+   void*          _parent;
+   void*          _leftChild;
+   void*          _rightChild;
+   Table          _table;
+} Node;
+
+void init(Table* table, int capacity, int colNum);
+void push(Table* table, char* data);
+void push_double(Table* table, double* data);
+void pop(Table* table);
+void clear(Table* table);
+void findCut(Table* table, int* dimension, double* threshold);
 int rnGen(const int range);
 double impurity(const Table* table, int row);
 
